@@ -32,6 +32,8 @@ class DatabaseSeeder extends Seeder
             StudentParentInfoSeeder::class,
             StudentAcademicInfoSeeder::class,
             AcademicSettingSeeder::class,
+//            DemoAssessmentsSeeder::class,
+
         ]);
     }
 }

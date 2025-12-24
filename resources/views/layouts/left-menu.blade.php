@@ -25,6 +25,7 @@
                             }
                         }
                     @endphp
+
                     <a class="nav-link d-flex {{ request()->is('classes') ? 'active' : '' }}" href="{{ url('classes') }}">
                         <i class="bi bi-diagram-3"></i>
                         <span class="ms-2 d-inline d-sm-none d-md-none d-xl-inline">Classes</span>
@@ -35,30 +36,45 @@
 
             {{-- Students / My Children + Teachers (للأدمن و المدرّس و الأهل) --}}
             @if(Auth::user()->role != 'student')
-                {{-- Students / My Children --}}
-                <li class="nav-item">
-                    @if(auth()->user()->hasRole('parent'))
-                        {{-- للأهل: يفتح صفحة My Children --}}
+
+                {{-- Parent: My Children --}}
+                @if(auth()->user()->hasRole('parent'))
+                    <li class="nav-item">
                         <a class="nav-link {{ request()->routeIs('parent.children') ? 'active' : '' }}"
                            href="{{ route('parent.children') }}">
                             <i class="bi bi-people"></i>
                             <span class="ms-1 d-inline d-sm-none d-md-none d-xl-inline">My Children</span>
                         </a>
-                    @else
-                        {{-- لأي دور آخر: يفتح صفحة الطلاب العادية --}}
-                <li class="nav-item">
-                    <a type="button" href="#student-submenu" data-bs-toggle="collapse" class="d-flex nav-link {{ request()->is('students*')? 'active' : '' }}"><i class="bi bi-person-lines-fill"></i> <span class="ms-2 d-inline d-sm-none d-md-none d-xl-inline">Students</span>
-                        <i class="ms-auto d-inline d-sm-none d-md-none d-xl-inline bi bi-chevron-down"></i>
-                    </a>
-                    <ul class="nav collapse {{ request()->is('students*')? 'show' : 'hide' }} bg-white" id="student-submenu">
-                        <li class="nav-item w-100" {{ request()->routeIs('student.list.show')? 'style="font-weight:bold;"' : '' }}><a class="nav-link" href="{{route('student.list.show')}}"><i class="bi bi-person-video2 me-2"></i> View Students</a></li>
-                        @if (!session()->has('browse_session_id') && Auth::user()->role == "admin")
-                            <li class="nav-item w-100" {{ request()->routeIs('student.create.show')? 'style="font-weight:bold;"' : '' }}><a class="nav-link" href="{{route('student.create.show')}}"><i class="bi bi-person-plus me-2"></i> Add Student</a></li>
-                        @endif
-                    </ul>
-                </li>
-                    @endif
-                </li>
+                    </li>
+                @else
+                    {{-- Students submenu (Admin/Teacher/Other) --}}
+                    <li class="nav-item">
+                        <a type="button"
+                           href="#student-submenu"
+                           data-bs-toggle="collapse"
+                           class="d-flex nav-link {{ request()->is('students*') ? 'active' : '' }}">
+                            <i class="bi bi-person-lines-fill"></i>
+                            <span class="ms-2 d-inline d-sm-none d-md-none d-xl-inline">Students</span>
+                            <i class="ms-auto d-inline d-sm-none d-md-none d-xl-inline bi bi-chevron-down"></i>
+                        </a>
+
+                        <ul class="nav collapse {{ request()->is('students*') ? 'show' : 'hide' }} bg-white" id="student-submenu">
+                            <li class="nav-item w-100" style="{{ request()->routeIs('student.list.show') ? 'font-weight:bold;' : '' }}">
+                                <a class="nav-link" href="{{ route('student.list.show') }}">
+                                    <i class="bi bi-person-video2 me-2"></i> View Students
+                                </a>
+                            </li>
+
+                            @if (!session()->has('browse_session_id') && Auth::user()->role == "admin")
+                                <li class="nav-item w-100" style="{{ request()->routeIs('student.create.show') ? 'font-weight:bold;' : '' }}">
+                                    <a class="nav-link" href="{{ route('student.create.show') }}">
+                                        <i class="bi bi-person-plus me-2"></i> Add Student
+                                    </a>
+                                </li>
+                            @endif
+                        </ul>
+                    </li>
+                @endif
 
                 {{-- Teachers submenu --}}
                 <li class="nav-item">
@@ -66,13 +82,12 @@
                        href="#teacher-submenu"
                        data-bs-toggle="collapse"
                        class="d-flex nav-link {{ request()->is('teachers*') ? 'active' : '' }}">
-                        <i class="bi bi-person-lines-fill"></i>
+                        <i class="bi bi-person-badge"></i>
                         <span class="ms-2 d-inline d-sm-none d-md-none d-xl-inline">Teachers</span>
                         <i class="ms-auto d-inline d-sm-none d-md-none d-xl-inline bi bi-chevron-down"></i>
                     </a>
 
-                    <ul class="nav collapse {{ request()->is('teachers*') ? 'show' : 'hide' }} bg-white"
-                        id="teacher-submenu">
+                    <ul class="nav collapse {{ request()->is('teachers*') ? 'show' : 'hide' }} bg-white" id="teacher-submenu">
                         <li class="nav-item w-100" style="{{ request()->routeIs('teacher.list.show') ? 'font-weight:bold;' : '' }}">
                             <a class="nav-link" href="{{ route('teacher.list.show') }}">
                                 <i class="bi bi-person-video2 me-2"></i> View Teachers
@@ -94,7 +109,7 @@
             @if (Auth::user()->role == 'teacher')
                 <li class="nav-item">
                     <a class="nav-link {{ (request()->is('courses/teacher*') || request()->is('courses/assignments*')) ? 'active' : '' }}"
-                       href="{{ route('course.teacher.list.show', ['teacher_id' => Auth::user()->id]) }}">
+                       href="{{ route('course.teacher.list.show') }}">
                         <i class="bi bi-journal-medical"></i>
                         <span class="ms-1 d-inline d-sm-none d-md-none d-xl-inline">My Courses</span>
                     </a>
@@ -139,10 +154,7 @@
 
                     @if ($class_info)
                         <a class="nav-link"
-                           href="{{ route('section.routine.show', [
-                                'class_id'  => $class_info->class_id,
-                                'section_id'=> $class_info->section_id
-                           ]) }}">
+                           href="{{ route('section.routine.show', ['class_id' => $class_info->class_id, 'section_id'=> $class_info->section_id]) }}">
                             <i class="bi bi-calendar4-range"></i>
                             <span class="ms-1 d-inline d-sm-none d-md-none d-xl-inline">Routine</span>
                         </a>
@@ -150,56 +162,104 @@
                 </li>
             @endif
 
-            {{-- Exams / Grades (للأدمن + المدرّس + الأهل) --}}
-            @if (Auth::user()->role != 'student')
-                <li class="nav-item border-bottom">
-                    <a type="button"
-                       href="#exam-grade-submenu"
-                       data-bs-toggle="collapse"
-                       class="d-flex nav-link {{ request()->is('exams*') ? 'active' : '' }}">
-                        <i class="bi bi-file-text"></i>
-                        <span class="ms-2 d-inline d-sm-none d-md-none d-xl-inline">Exams / Grades</span>
-                        <i class="ms-auto d-inline d-sm-none d-md-none d-xl-inline bi bi-chevron-down"></i>
-                    </a>
+            {{-- =========================
+                 Exams & Grades (NEW CLEAN)
+                 ========================= --}}
+            <li class="nav-item border-bottom">
+                @php
+                    $isAssessmentsActive =
+                        request()->is('assessments*')
+                        || request()->is('my-assessments*')
+                        || request()->is('gradebook*')
+                        || request()->is('reports*')
+                        || request()->is('report-card*')
+                        || request()->is('student/grades*');
+                @endphp
 
-                    <ul class="nav collapse {{ request()->is('exams*') ? 'show' : 'hide' }} bg-white"
-                        id="exam-grade-submenu">
-                        <li class="nav-item w-100" style="{{ request()->routeIs('exam.list.show') ? 'font-weight:bold;' : '' }}">
-                            <a class="nav-link" href="{{ route('exam.list.show') }}">
-                                <i class="bi bi-file-text me-2"></i> View Exams
+                <a type="button"
+                   href="#exams-grades-submenu"
+                   data-bs-toggle="collapse"
+                   class="d-flex nav-link {{ $isAssessmentsActive ? 'active' : '' }}">
+                    <i class="bi bi-clipboard-check"></i>
+                    <span class="ms-2 d-inline d-sm-none d-md-none d-xl-inline">Exams & Grades</span>
+                    <i class="ms-auto d-inline d-sm-none d-md-none d-xl-inline bi bi-chevron-down"></i>
+                </a>
+
+                <ul class="nav collapse {{ $isAssessmentsActive ? 'show' : 'hide' }} bg-white" id="exams-grades-submenu">
+
+                    {{-- Admin/Teacher --}}
+                    @if(Auth::user()->role == 'admin' || Auth::user()->role == 'teacher')
+                        <li class="nav-item w-100" style="{{ request()->routeIs('assessments.dashboard') ? 'font-weight:bold;' : '' }}">
+                            <a class="nav-link" href="{{ route('assessments.dashboard') }}">
+                                <i class="bi bi-speedometer2 me-2"></i> Dashboard
                             </a>
                         </li>
 
-                        @if (Auth::user()->role == 'admin' || Auth::user()->role == 'teacher')
-                            <li class="nav-item w-100" style="{{ request()->routeIs('exam.create.show') ? 'font-weight:bold;' : '' }}">
-                                <a class="nav-link" href="{{ route('exam.create.show') }}">
-                                    <i class="bi bi-file-plus me-2"></i> Create Exams
-                                </a>
-                            </li>
-                        @endif
-
-                        @if (Auth::user()->role == 'admin')
-                            <li class="nav-item w-100" style="{{ request()->routeIs('exam.grade.system.create') ? 'font-weight:bold;' : '' }}">
-                                <a class="nav-link" href="{{ route('exam.grade.system.create') }}">
-                                    <i class="bi bi-file-plus me-2"></i> Add Grade Systems
-                                </a>
-                            </li>
-                        @endif
-
-                        <li class="nav-item w-100" style="{{ request()->routeIs('exam.grade.system.index') ? 'font-weight:bold;' : '' }}">
-                            <a class="nav-link" href="{{ route('exam.grade.system.index') }}">
-                                <i class="bi bi-file-ruled me-2"></i> View Grade Systems
+                        <li class="nav-item w-100" style="{{ request()->routeIs('assessments.index') ? 'font-weight:bold;' : '' }}">
+                            <a class="nav-link" href="{{ route('assessments.index') }}">
+                                <i class="bi bi-list-check me-2"></i> My Assessments
                             </a>
                         </li>
-                    </ul>
-                </li>
-            @endif
+
+                        <li class="nav-item w-100" style="{{ request()->routeIs('assessments.create') ? 'font-weight:bold;' : '' }}">
+                            <a class="nav-link" href="{{ route('assessments.create') }}">
+                                <i class="bi bi-plus-circle me-2"></i> Create Assessment
+                            </a>
+                        </li>
+
+                        <li class="nav-item w-100" style="{{ request()->routeIs('gradebook.index') ? 'font-weight:bold;' : '' }}">
+                            <a class="nav-link" href="{{ route('gradebook.index') }}">
+                                <i class="bi bi-journal-text me-2"></i> Gradebook
+                            </a>
+                        </li>
+
+                        <li class="nav-item w-100" style="{{ request()->routeIs('reports.exports') ? 'font-weight:bold;' : '' }}">
+                            <a class="nav-link" href="{{ route('reports.exports') }}">
+                                <i class="bi bi-download me-2"></i> Reports & Exports
+                            </a>
+                        </li>
+                    @endif
+
+                    {{-- Student --}}
+                    @if(Auth::user()->role == 'student')
+                        <li class="nav-item w-100" style="{{ request()->routeIs('student.assessments.available') ? 'font-weight:bold;' : '' }}">
+                            <a class="nav-link" href="{{ route('student.assessments.available') }}">
+                                <i class="bi bi-ui-checks-grid me-2"></i> My Exams
+                            </a>
+                        </li>
+
+                        <li class="nav-item w-100" style="{{ request()->routeIs('student.grades.index') ? 'font-weight:bold;' : '' }}">
+                            <a class="nav-link" href="{{ route('student.grades.index') }}">
+                                <i class="bi bi-bar-chart-line me-2"></i> My Grades
+                            </a>
+                        </li>
+
+                        <li class="nav-item w-100" style="{{ request()->routeIs('reportcard.my') ? 'font-weight:bold;' : '' }}">
+                            <a class="nav-link" href="{{ route('reportcard.my') }}">
+                                <i class="bi bi-file-earmark-text me-2"></i> Report Card
+                            </a>
+                        </li>
+                    @endif
+
+                    {{-- Parent --}}
+                    @if(auth()->user()->hasRole('parent'))
+                        <li class="nav-item w-100" style="{{ request()->routeIs('parent.children') ? 'font-weight:bold;' : '' }}">
+                            <a class="nav-link" href="{{ route('parent.children') }}">
+                                <i class="bi bi-people me-2"></i> Children Results
+                            </a>
+                        </li>
+                    @endif
+
+                </ul>
+            </li>
 
             {{-- Admin-only block --}}
             @if (Auth::user()->role == 'admin')
+
                 <li class="nav-item">
-                    <a href="{{ route('admin.users.index') }}" class="nav-link">
-                        <i class="bi bi-people"></i> <span> Rools </span>
+                    <a href="{{ route('admin.users.index') }}" class="nav-link {{ request()->is('admin/users*') ? 'active' : '' }}">
+                        <i class="bi bi-people"></i>
+                        <span class="ms-1 d-inline d-sm-none d-md-none d-xl-inline">Roles</span>
                     </a>
                 </li>
 

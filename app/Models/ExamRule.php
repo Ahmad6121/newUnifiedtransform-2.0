@@ -2,18 +2,24 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class ExamRule extends Model
 {
-    use HasFactory;
+    protected $fillable = ['exam_id','class_id','section_id'];
 
-    protected $fillable = [
-        'total_marks',
-        'pass_marks',
-        'marks_distribution_note',
-        'exam_id',
-        'session_id'
-    ];
+    public function exam()
+    {
+        return $this->belongsTo(Exam::class);
+    }
+
+    public function class()
+    {
+        return $this->belongsTo(SchoolClass::class, 'class_id');
+    }
+
+    public function section()
+    {
+        return $this->belongsTo(Section::class, 'section_id');
+    }
 }

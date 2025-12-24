@@ -2,132 +2,57 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\GradingSystem;
-use App\Traits\SchoolSession;
-use App\Interfaces\SemesterInterface;
-use App\Interfaces\SchoolClassInterface;
-use App\Interfaces\SchoolSessionInterface;
-use App\Http\Requests\GradingSystemStoreRequest;
-use App\Repositories\GradingSystemRepository;
+use App\Models\SchoolClass;
+use App\Models\Semester;
+use App\Support\ColumnHelper;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class GradingSystemController extends Controller
 {
-    use SchoolSession;
-
-    protected $schoolClassRepository;
-    protected $schoolSessionRepository;
-    protected $semesterRepository;
-
-    public function __construct(
-        SchoolSessionInterface $schoolSessionRepository,
-        SchoolClassInterface $schoolClassRepository,
-        SemesterInterface $semesterRepository)
+    private function ensureAdmin(): void
     {
-        $this->schoolSessionRepository = $schoolSessionRepository;
-        $this->schoolClassRepository = $schoolClassRepository;
-        $this->semesterRepository = $semesterRepository;
-    }
-    /**
-     * Display a listing of the resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
-    public function index()
-    {
-        $gradingSystemRepository = new GradingSystemRepository();
-        $current_school_session_id = $this->getSchoolCurrentSession();
-        $gradingSystems = $gradingSystemRepository->getAll($current_school_session_id);
-
-        $data = [
-            'gradingSystems'            => $gradingSystems,
-            'current_school_session_id' => $current_school_session_id,
-        ];
-
-        return view('exams.grade.view', $data);
+        abort_unless(Auth::user()->role === 'admin', 403);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
     public function create()
     {
-        $current_school_session_id = $this->getSchoolCurrentSession();
-        $school_classes = $this->schoolClassRepository->getAllBySession($current_school_session_id);
-        $semesters = $this->semesterRepository->getAll($current_school_session_id);
+        $this->ensureAdmin();
 
-        $data = [
-            'current_school_session_id' => $current_school_session_id,
-            'school_classes'            => $school_classes,
-            'semesters'                 => $semesters,
-        ];
+        $classNameCol = ColumnHelper::firstExisting('school_classes', ['name','class_name','class','title'], 'id');
+        $semesterNameCol = ColumnHelper::firstExisting('semesters', ['name','semester_name','title'], 'id');
 
-        return view('exams.grade.create', $data);
+        $classes = SchoolClass::orderBy($classNameCol)->get();
+        $semesters = Semester::orderBy($semesterNameCol)->get();
+
+        return view('exams.grade.create', compact('classes','semesters','classNameCol','semesterNameCol'));
     }
 
-    /**
-     * Store a newly created resource in storage.
-     *
-     * @param  GradingSystemStoreRequest  $request
-     * @return \Illuminate\Http\Response
-     */
-    public function store(GradingSystemStoreRequest $request)
+    public function store(Request $request)
     {
-        try {
-            $gradingSystemRepository = new GradingSystemRepository();
-            $gradingSystemRepository->store($request->validated());
+        $this->ensureAdmin();
 
-            return back()->with('status', 'Creating grading system was successful!');
-        } catch (\Exception $e) {
-            return back()->withError($e->getMessage());
-        }
+        $data = $request->validate([
+            'name' => 'required|string|max:255',
+            'class_id' => 'nullable|exists:school_classes,id',
+            'semester_id' => 'nullable|exists:semesters,id',
+        ]);
+
+        GradingSystem::create($data);
+
+        return redirect()->route('exam.grade.system.index')->with('success', 'Grading system created.');
     }
 
-    /**
-     * Display the specified resource.
-     *
-     * @param  \App\Models\GradingSystem  $gradingSystem
-     * @return \Illuminate\Http\Response
-     */
-    public function show(GradingSystem $gradingSystem)
+    public function index()
     {
-        //
-    }
+        $this->ensureAdmin();
 
-    /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  \App\Models\GradingSystem  $gradingSystem
-     * @return \Illuminate\Http\Response
-     */
-    public function edit(GradingSystem $gradingSystem)
-    {
-        //
-    }
+        $classNameCol = ColumnHelper::firstExisting('school_classes', ['name','class_name','class','title'], 'id');
+        $semesterNameCol = ColumnHelper::firstExisting('semesters', ['name','semester_name','title'], 'id');
 
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\GradingSystem  $gradingSystem
-     * @return \Illuminate\Http\Response
-     */
-    public function update(Request $request, GradingSystem $gradingSystem)
-    {
-        //
-    }
+        $systems = GradingSystem::with(['class','semester'])->latest()->get();
 
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  \App\Models\GradingSystem  $gradingSystem
-     * @return \Illuminate\Http\Response
-     */
-    public function destroy(GradingSystem $gradingSystem)
-    {
-        //
+        return view('exams.grade.view', compact('systems','classNameCol','semesterNameCol'));
     }
 }

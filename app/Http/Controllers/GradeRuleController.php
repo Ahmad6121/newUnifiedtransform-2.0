@@ -2,121 +2,56 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Models\GradeRule;
+use App\Models\GradingSystem;
 use Illuminate\Http\Request;
-use App\Traits\SchoolSession;
-use App\Repositories\GradeRuleRepository;
-use App\Interfaces\SchoolSessionInterface;
-use App\Http\Requests\GradeRuleStoreRequest;
+use Illuminate\Support\Facades\Auth;
 
 class GradeRuleController extends Controller
 {
-    use SchoolSession;
-
-    protected $schoolSessionRepository;
-
-    public function __construct(SchoolSessionInterface $schoolSessionRepository)
+    private function ensureAdmin(): void
     {
-        $this->schoolSessionRepository = $schoolSessionRepository;
-    }
-    /**
-     * Display a listing of the resource.
-     * @param  \Illuminate\Http\Request  $request
-     * 
-     * @return \Illuminate\Http\Response
-     */
-    public function index(Request $request)
-    {
-        $grading_system_id = $request->query('grading_system_id');
-        $current_school_session_id = $this->getSchoolCurrentSession();
-
-        $gradeRuleRepository = new GradeRuleRepository();
-        $gradeRules = $gradeRuleRepository->getAll($current_school_session_id, $grading_system_id);
-
-        return view('exams.grade.view-rules', compact('gradeRules'));
+        abort_unless(Auth::user()->role === 'admin', 403);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     * @param  \Illuminate\Http\Request  $request
-     * 
-     * @return \Illuminate\Http\Response
-     */
-    public function create(Request $request)
+    public function create()
     {
-        $grading_system_id = $request->query('grading_system_id');
-        $current_school_session_id = $this->getSchoolCurrentSession();
-        return view('exams.grade.add-rule', compact('grading_system_id', 'current_school_session_id'));
+        $this->ensureAdmin();
+        $systems = GradingSystem::latest()->get();
+        return view('exams.grade.add-rule', compact('systems'));
     }
 
-    /**
-     * Store a newly created resource in storage.
-     *
-     * @param  GradeRuleStoreRequest  $request
-     * @return \Illuminate\Http\Response
-     */
-    public function store(GradeRuleStoreRequest $request)
+    public function store(Request $request)
     {
-        try {
-            $gradeRuleRepository = new GradeRuleRepository();
-            $gradeRuleRepository->store($request->validated());
+        $this->ensureAdmin();
 
-            return back()->with('status', 'Creating grading system rule was successful!');
-        } catch (\Exception $e) {
-            return back()->withError($e->getMessage());
-        }
+        $data = $request->validate([
+            'grading_system_id' => 'required|exists:grading_systems,id',
+            'min_percent' => 'required|numeric|min:0|max:100',
+            'max_percent' => 'required|numeric|min:0|max:100|gte:min_percent',
+            'grade' => 'required|string|max:20',
+            'remark' => 'nullable|string|max:255',
+        ]);
+
+        GradeRule::create($data);
+
+        return back()->with('success', 'Grade rule added.');
     }
 
-    /**
-     * Display the specified resource.
-     *
-     * @param  \App\Models\GradeRule  $gradeRule
-     * @return \Illuminate\Http\Response
-     */
-    public function show(GradeRule $gradeRule)
+    public function index()
     {
-        //
+        $this->ensureAdmin();
+        $rules = GradeRule::with('system')->latest()->get();
+        return view('exams.grade.view-rules', compact('rules'));
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  \App\Models\GradeRule  $gradeRule
-     * @return \Illuminate\Http\Response
-     */
-    public function edit(GradeRule $gradeRule)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\GradeRule  $gradeRule
-     * @return \Illuminate\Http\Response
-     */
-    public function update(Request $request, GradeRule $gradeRule)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
-     */
     public function destroy(Request $request)
     {
-        try {
-            $gradeRuleRepository = new GradeRuleRepository();
-            $gradeRuleRepository->delete($request->id);
+        $this->ensureAdmin();
 
-            return back()->with('status', 'Deleting grading system rule was successful!');
-        } catch (\Exception $e) {
-            return back()->withError($e->getMessage());
-        }
+        $request->validate(['id' => 'required|exists:grade_rules,id']);
+        GradeRule::where('id', $request->id)->delete();
+
+        return back()->with('success', 'Rule deleted.');
     }
 }

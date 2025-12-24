@@ -305,6 +305,15 @@ class UserController extends Controller
         return view('teachers.list', $data);
     }
 
+    public function getMyChildrenIdsForAuthParent(): array
+    {
+        // عدّل هذا حسب جدول الربط عندك
+        // إذا عندك children في users table (مثل parent_id) استخدمه.
+        // مثال شائع:
+        return \App\Models\User::where('parent_id', auth()->id())->pluck('id')->toArray();
+    }
+
+
 
 
 

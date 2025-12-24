@@ -1,57 +1,59 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="container">
-    <div class="row justify-content-start">
-        @include('layouts.left-menu')
-        <div class="col-xs-11 col-sm-11 col-md-11 col-lg-10 col-xl-10 col-xxl-10">
-            <div class="row pt-2">
-                <div class="col ps-4">
-                    <h1 class="display-6 mb-3">
-                        <i class="bi bi-file-text"></i> View Grading Rule
-                    </h1>
-                    @include('session-messages')
-                    <div class="mb-4 mt-4">
-                        <table class="table mt-4">
-                            <thead>
-                                <tr>
-                                    <th scope="col">System Name</th>
-                                    <th scope="col">Points</th>
-                                    <th scope="col">Grade</th>
-                                    <th scope="col">Starts At</th>
-                                    <th scope="col">Ends At</th>
-                                    <th scope="col">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @isset($gradeRules)
-                                    @foreach ($gradeRules as $gradeRule)
-                                    <tr>
-                                        <td>{{$gradeRule->gradingSystem->system_name}}</td>
-                                        <td>{{$gradeRule->point}}</td>
-                                        <td>{{$gradeRule->grade}}</td>
-                                        <td>{{$gradeRule->start_at}}</td>
-                                        <td>{{$gradeRule->end_at}}</td>
-                                        <td>
-                                            <div class="btn-group" role="group">
-                                                <a href="{{route('exam.grade.system.rule.delete')}}" role="button" class="btn btn-sm btn-primary" onclick="event.preventDefault();
-                                                     document.getElementById('delete-form-{{$gradeRule->id}}').submit();"><i class="bi bi-trash2"></i> Delete</a>
-                                                <form id="delete-form-{{$gradeRule->id}}" action="{{ route('exam.grade.system.rule.delete') }}" method="POST" class="d-none">
-                                                    @csrf
-                                                    <input type="hidden" name="id" value="{{$gradeRule->id}}">
-                                                </form>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    @endforeach
-                                @endisset
-                            </tbody>
-                        </table>
-                    </div>
+    <div class="container-fluid">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <h2 class="mb-0">Grade Rules</h2>
+            <a class="btn btn-primary" href="{{ route('exam.grade.system.rule.create') }}">+ Add Rule</a>
+        </div>
+
+        @if(session('success'))
+            <div class="alert alert-success mb-3">{{ session('success') }}</div>
+        @endif
+
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered align-middle">
+                        <thead>
+                        <tr>
+                            <th>System</th>
+                            <th>Min %</th>
+                            <th>Max %</th>
+                            <th>Grade</th>
+                            <th>Remark</th>
+                            <th style="width:120px;">Action</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @forelse($rules as $r)
+                            <tr>
+                                <td>{{ $r->system->name ?? '-' }}</td>
+                                <td>{{ $r->min_percent }}</td>
+                                <td>{{ $r->max_percent }}</td>
+                                <td>{{ $r->grade }}</td>
+                                <td>{{ $r->remark ?? '-' }}</td>
+                                <td>
+                                    <form method="POST" action="{{ route('exam.grade.system.rule.delete') }}">
+                                        @csrf
+                                        <input type="hidden" name="id" value="{{ $r->id }}">
+                                        <button class="btn btn-sm btn-danger" onclick="return confirm('Delete this rule?')">
+                                            Delete
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="6" class="text-muted">No grade rules.</td>
+                            </tr>
+                        @endforelse
+                        </tbody>
+                    </table>
                 </div>
+
             </div>
-            @include('layouts.footer')
         </div>
     </div>
-</div>
 @endsection
+

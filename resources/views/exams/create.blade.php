@@ -1,95 +1,103 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="container">
-    <div class="row justify-content-start">
-        @include('layouts.left-menu')
-        <div class="col-xs-11 col-sm-11 col-md-11 col-lg-10 col-xl-10 col-xxl-10">
-            <div class="row pt-2">
-                <div class="col ps-4">
-                    <h1 class="display-6 mb-3"><i class="bi bi-file-plus"></i> Create Exam</h1>
-                    <nav aria-label="breadcrumb">
-                        <ol class="breadcrumb">
-                            <li class="breadcrumb-item"><a href="{{route('home')}}">Home</a></li>
-                            <li class="breadcrumb-item active" aria-current="page">Create Exam</li>
-                        </ol>
-                    </nav>
-                    @include('session-messages')
-                    <div class="row">
-                        <div class="col-5 mb-4">
-                            <div class="p-3 border bg-light shadow-sm">
-                                <form action="{{route('exam.create')}}" method="POST">
-                                    @csrf
-                                    <input type="hidden" name="session_id" value="{{$current_school_session_id}}">
-                                    <div>
-                                        <p>Select Semester:<sup><i class="bi bi-asterisk text-primary"></i></sup></p>
-                                        <select class="form-select" name="semester_id">
-                                            @isset($semesters)
-                                                @foreach ($semesters as $semester)
-                                                <option value="{{$semester->id}}">{{$semester->semester_name}}</option>
-                                                @endforeach
-                                            @endisset
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <p class="mt-2">Select class:<sup><i class="bi bi-asterisk text-primary"></i></sup></p>
-                                        <select onchange="getCourses(this);" class="form-select" name="class_id">
-                                            @isset($classes)
-                                                <option selected disabled>Please select a class</option>
-                                                @foreach ($classes as $school_class)
-                                                <option value="{{$school_class->id}}">{{$school_class->class_name}}</option>
-                                                @endforeach
-                                            @endisset
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <p class="mt-2">Select course:<sup><i class="bi bi-asterisk text-primary"></i></sup></p>
-                                        <select class="form-select" id="course-select" name="course_id">
-                                        </select>
-                                    </div>
-                                    <div class="mt-2">
-                                        <p>Exam name<sup><i class="bi bi-asterisk text-primary"></i></sup></p>
-                                        <input type="text" class="form-control" name="exam_name" placeholder="Quiz, Assignment, Mid term, Final, ..." aria-label="Quiz, Assignment, Mid term, Final, ...">
-                                    </div>
-                                    <div class="mt-2">
-                                        <label for="inputStarts" class="form-label">Starts<sup><i class="bi bi-asterisk text-primary"></i></sup></label>
-                                        <input type="datetime-local" class="form-control" id="inputStarts" name="start_date" placeholder="Starts">
-                                    </div>
-                                    <div class="mt-2">
-                                        <label for="inputEnds" class="form-label">Ends<sup><i class="bi bi-asterisk text-primary"></i></sup></label>
-                                        <input type="datetime-local" class="form-control" id="inputEnds" name="end_date" placeholder="Ends">
-                                    </div>
-                                    <button type="submit" class="mt-3 btn btn-sm btn-outline-primary"><i class="bi bi-check2"></i> Create</button>
-                                </form>
-                            </div>
+    <div class="container-fluid">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <h2 class="mb-0">Create Exam</h2>
+            <a class="btn btn-outline-secondary" href="{{ route('exam.list.show') }}">Back</a>
+        </div>
+
+        @if(session('success'))
+            <div class="alert alert-success mb-3">{{ session('success') }}</div>
+        @endif
+
+        @if($errors->any())
+            <div class="alert alert-danger mb-3">
+                <ul class="mb-0">
+                    @foreach($errors->all() as $e)
+                        <li>{{ $e }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
+        <div class="card">
+            <div class="card-body">
+                <form method="POST" action="{{ route('exam.create') }}" class="row g-3">
+                    @csrf
+
+                    <div class="col-md-6">
+                        <label class="form-label">Exam Name</label>
+                        <input type="text" name="name" class="form-control" value="{{ old('name') }}" required>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Course</label>
+                        <select name="course_id" class="form-select" required>
+                            <option value="">Select Course</option>
+                            @foreach($courses as $c)
+                                <option value="{{ $c->id }}" {{ old('course_id') == $c->id ? 'selected' : '' }}>
+                                    {{ $c->{$courseNameCol} }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Semester (optional)</label>
+                        <select name="semester_id" class="form-select">
+                            <option value="">Select Semester</option>
+                            @foreach($semesters as $s)
+                                <option value="{{ $s->id }}" {{ old('semester_id') == $s->id ? 'selected' : '' }}>
+                                    {{ $s->{$semesterNameCol} }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">Starts</label>
+                        <input type="datetime-local" name="starts" class="form-control" value="{{ old('starts') }}">
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">Ends</label>
+                        <input type="datetime-local" name="ends" class="form-control" value="{{ old('ends') }}">
+                    </div>
+
+                    <hr class="my-2">
+
+                    <div class="col-md-3">
+                        <div class="form-check mt-4">
+                            <input class="form-check-input" type="checkbox" value="1" id="is_online" name="is_online"
+                                {{ old('is_online') ? 'checked' : '' }}>
+                            <label class="form-check-label" for="is_online">
+                                Online Exam
+                            </label>
                         </div>
                     </div>
-                </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">Duration (minutes)</label>
+                        <input type="number" name="duration_minutes" class="form-control" min="1" max="600"
+                               value="{{ old('duration_minutes', 60) }}">
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">Max Attempts</label>
+                        <input type="number" name="max_attempts" class="form-control" min="1" max="20"
+                               value="{{ old('max_attempts', 1) }}">
+                    </div>
+
+                    <div class="col-12 d-flex gap-2">
+                        <button class="btn btn-primary">
+                            <i class="bi bi-check2-circle me-1"></i> Save
+                        </button>
+                        <a href="{{ route('exam.list.show') }}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+
+                </form>
             </div>
-            @include('layouts.footer')
         </div>
     </div>
-</div>
-<script>
-    function getCourses(obj) {
-        var class_id = obj.options[obj.selectedIndex].value;
-
-        var url = "{{route('get.sections.courses.by.classId')}}?class_id=" + class_id 
-
-        fetch(url)
-        .then((resp) => resp.json())
-        .then(function(data) {
-
-            var courseSelect = document.getElementById('course-select');
-            courseSelect.options.length = 0;
-            data.courses.unshift({'id': 0,'course_name': 'Please select a course'})
-            data.courses.forEach(function(course, key) {
-                courseSelect[key] = new Option(course.course_name, course.id);
-            });
-        })
-        .catch(function(error) {
-            console.log(error);
-        });
-    }
-</script>
 @endsection

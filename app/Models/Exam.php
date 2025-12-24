@@ -2,36 +2,33 @@
 
 namespace App\Models;
 
-use App\Models\Course;
-use App\Models\Semester;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Exam extends Model
 {
-    use HasFactory;
-
     protected $fillable = [
-        'exam_name',
-        'start_date',
-        'end_date',
-        'semester_id',
-        'class_id',
-        'course_id',
-        'session_id'
+        'name','course_id','semester_id','starts','ends',
+        'is_online','duration_minutes','max_attempts'
     ];
 
-    /**
-     * Get the course.
-     */
-    public function course() {
-        return $this->belongsTo(Course::class, 'course_id');
+    protected $casts = [
+        'starts' => 'datetime',
+        'ends' => 'datetime',
+        'is_online' => 'boolean',
+    ];
+
+    public function course()
+    {
+        return $this->belongsTo(Course::class);
     }
 
-    /**
-     * Get the semester.
-     */
-    public function semester() {
-        return $this->belongsTo(Semester::class, 'semester_id');
+    public function semester()
+    {
+        return $this->belongsTo(Semester::class);
+    }
+
+    public function rules()
+    {
+        return $this->hasMany(ExamRule::class);
     }
 }

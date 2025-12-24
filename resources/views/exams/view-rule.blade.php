@@ -1,55 +1,71 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="container">
-    <div class="row justify-content-start">
-        @include('layouts.left-menu')
-        <div class="col-xs-11 col-sm-11 col-md-11 col-lg-10 col-xl-10 col-xxl-10">
-            <div class="row pt-2">
-                <div class="col ps-4">
-                    <h1 class="display-6 mb-3">
-                        <i class="bi bi-file-text"></i> Exam Rules
-                    </h1>
-                    <nav aria-label="breadcrumb">
-                        <ol class="breadcrumb">
-                            <li class="breadcrumb-item"><a href="{{route('home')}}">Home</a></li>
-                            <li class="breadcrumb-item"><a href="{{url()->previous()}}">Exams</a></li>
-                            <li class="breadcrumb-item active" aria-current="page">Exam Rules</li>
-                        </ol>
-                    </nav>
-                    <div class="mb-4 bg-white border shadow-sm p-3">
-                        <table class="table table-responsive">
+    <div class="container-fluid">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <h2 class="mb-0">View Exam Rules</h2>
+            <a class="btn btn-outline-primary" href="{{ route('exam.rule.create') }}">+ Add Rule</a>
+        </div>
+
+        @if(session('success'))
+            <div class="alert alert-success mb-3">{{ session('success') }}</div>
+        @endif
+
+        {{-- Pick exam --}}
+        <form method="GET" action="{{ route('exam.rule.show') }}" class="row g-2 mb-3">
+            <div class="col-md-8">
+                <select class="form-select" name="exam_id" required>
+                    <option value="">Select Exam</option>
+                    @foreach($exams as $e)
+                        <option value="{{ $e->id }}" {{ (string)$exam_id === (string)$e->id ? 'selected' : '' }}>
+                            {{ $e->name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <button class="btn btn-primary w-100">
+                    <i class="bi bi-arrow-clockwise me-1"></i> Load
+                </button>
+            </div>
+        </form>
+
+        <div class="card">
+            <div class="card-body">
+                @if(!$exam_id)
+                    <div class="text-muted">Select an exam to show its rules.</div>
+                @else
+                    <div class="table-responsive">
+                        <table class="table table-bordered align-middle">
                             <thead>
-                                <tr>
-                                    <th scope="col">Total Marks</th>
-                                    <th scope="col">Pass Marks</th>
-                                    <th scope="col">Marks Distribution Note</th>
-                                    <th scope="col">Actions</th>
-                                </tr>
+                            <tr>
+                                <th>Exam</th>
+                                <th>Class</th>
+                                <th>Section</th>
+                                <th>Created</th>
+                            </tr>
                             </thead>
                             <tbody>
-                                @foreach ($exam_rules as $exam_rule)
+                            @forelse($rules as $r)
                                 <tr>
-                                    <td>{{$exam_rule->total_marks}}</td>
-                                    <td>{{$exam_rule->pass_marks}}</td>
-                                    <td>{{$exam_rule->marks_distribution_note}}</td>
-                                    <td>
-                                        <div class="btn-group" role="group">
-                                            <a type="button" href="{{route('exam.rule.edit', [
-                                                'exam_rule_id' => $exam_rule->id
-                                            ])}}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pen"></i> Edit</a>
-                                            {{-- <button type="button" class="btn btn-sm btn-primary"><i class="bi bi-trash2"></i> Delete</button> --}}
-                                        </div>
-                                    </td>
+                                    <td>{{ $r->exam->name ?? '-' }}</td>
+                                    <td>{{ $r->class->{$classNameCol} ?? '-' }}</td>
+                                    <td>{{ $r->section->{$sectionNameCol} ?? '-' }}</td>
+                                    <td>{{ $r->created_at }}</td>
                                 </tr>
-                                @endforeach
+                            @empty
+                                <tr>
+                                    <td colspan="4" class="text-muted">No rules found for this exam.</td>
+                                </tr>
+                            @endforelse
                             </tbody>
                         </table>
                     </div>
-                </div>
+                @endif
             </div>
-            @include('layouts.footer')
         </div>
+
     </div>
-</div>
 @endsection
+
