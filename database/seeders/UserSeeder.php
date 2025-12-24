@@ -12,6 +12,8 @@ use App\Models\Promotion;
 use App\Models\SchoolSession;
 use App\Models\Semester;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+
 
 class UserSeeder extends Seeder
 {
@@ -123,22 +125,28 @@ AssignedTeacher::firstOrCreate([
 // 👨‍🎓 3️⃣ إنشاء الطلاب لكل شعبة
 foreach ($sections as $section) {
 foreach ($studentNames as $index => $name) {
-$student = User::firstOrCreate(
-['email' => strtolower($name) . "_grade" . ($section->schoolClass->class_name ?? 'X') . "_sec{$section->id}_id{$index}@gmail.com"],
-[
-'first_name'  => $name,
-'last_name'   => "Student",
-'gender'      => 'male',
-'nationality' => 'Jordanian',
-'phone'       => '078' . rand(1000000, 9999999),
-'role'        => 'student',
-'password'    => Hash::make('password'),
-'address'     => 'Main Street',
-'address2'    => 'N/A',
-'city'        => 'Amman',
-'zip'         => '11118',
-]
-);
+    $nameSlug  = Str::slug($name, ''); // بدون فواصل/مسافات
+    $className = $section->schoolClass->class_name ?? 'X';
+    $classSlug = Str::slug($className, ''); // Grade 1 -> grade1
+
+    $email = strtolower($nameSlug) . "_grade" . strtolower($classSlug) . "_sec{$section->id}_id{$index}@demo.test";
+
+    $student = User::firstOrCreate(
+        ['email' => $email],
+        [
+            'first_name'  => $name,
+            'last_name'   => "Student",
+            'gender'      => 'male',
+            'nationality' => 'Jordanian',
+            'phone'       => '078' . rand(1000000, 9999999),
+            'role'        => 'student',
+            'password'    => Hash::make('password'),
+            'address'     => 'Main Street',
+            'address2'    => 'N/A',
+            'city'        => 'Amman',
+            'zip'         => '11118',
+        ]
+    );
 
 if (!$student->hasRole('student')) {
 $student->assignRole('student');

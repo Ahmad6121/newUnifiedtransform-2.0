@@ -26,43 +26,39 @@
                 <form method="POST" action="{{ route('assessments.store') }}">
                     @csrf
 
-                    {{-- ✅ session_id hidden --}}
-                    <input type="hidden" name="session_id" value="{{ $sessionId }}">
+                    <input type="hidden" name="session_id" value="{{ $sessionId ?? '' }}">
 
                     <div class="row g-3">
                         {{-- Title --}}
                         <div class="col-md-6">
                             <label class="form-label">Title</label>
-                            <input type="text" name="title" class="form-control"
-                                   value="{{ old('title') }}" required>
+                            <input type="text" name="title" class="form-control" value="{{ old('title') }}" required>
                         </div>
 
                         {{-- Mode --}}
                         <div class="col-md-6">
                             <label class="form-label">Mode</label>
                             <select name="mode" class="form-select" required>
-                                <option value="manual" {{ old('mode')=='manual' ? 'selected' : '' }}>Manual</option>
-                                <option value="online" {{ old('mode')=='online' ? 'selected' : '' }}>Online (later builder)</option>
+                                <option value="manual" {{ old('mode','manual')=='manual' ? 'selected' : '' }}>Manual</option>
+                                <option value="online" {{ old('mode')=='online' ? 'selected' : '' }}>Online</option>
                             </select>
                         </div>
 
-                        {{-- ✅ Class --}}
+                        {{-- Class --}}
                         <div class="col-md-4">
                             <label class="form-label">Class</label>
-
-                            {{-- خيار 1: reload عند تغيير الصف --}}
                             <select id="class_id" name="class_id" class="form-select" required
                                     onchange="window.location='{{ url('/assessments/create') }}?class_id=' + this.value;">
                                 @foreach($classes as $c)
                                     <option value="{{ $c->id }}"
-                                        {{ (int)$selectedClassId === (int)$c->id ? 'selected' : '' }}>
+                                        {{ (int)($defaultClassId ?? 0) === (int)$c->id ? 'selected' : '' }}>
                                         {{ $c->class_name }}
                                     </option>
                                 @endforeach
                             </select>
                         </div>
 
-                        {{-- ✅ Course --}}
+                        {{-- Course --}}
                         <div class="col-md-4">
                             <label class="form-label">Course</label>
                             <select id="course_id" name="course_id" class="form-select" required>
@@ -74,14 +70,21 @@
                                     </option>
                                 @endforeach
                             </select>
-                            <small class="text-muted">Courses are filtered by selected class (no duplicates).</small>
+                            <small class="text-muted">Courses are filtered by selected class.</small>
                         </div>
 
-                        {{-- Section ID optional --}}
+                        {{-- Section --}}
                         <div class="col-md-4">
-                            <label class="form-label">Section ID (optional)</label>
-                            <input type="number" name="section_id" class="form-control"
-                                   value="{{ old('section_id') }}">
+                            <label class="form-label">Section (optional)</label>
+                            <select name="section_id" class="form-select">
+                                <option value="">-- Select --</option>
+                                @foreach($sections as $sec)
+                                    <option value="{{ $sec->id }}"
+                                        {{ (string)old('section_id') === (string)$sec->id ? 'selected' : '' }}>
+                                        {{ $sec->section_name }} (ID: {{ $sec->id }})
+                                    </option>
+                                @endforeach
+                            </select>
                         </div>
 
                         {{-- Total Marks --}}
@@ -91,7 +94,7 @@
                                    value="{{ old('total_marks', 100) }}" required>
                         </div>
 
-                        {{-- Weight % --}}
+                        {{-- Weight --}}
                         <div class="col-md-4">
                             <label class="form-label">Weight %</label>
                             <input type="number" step="0.01" min="0" max="100" name="weight_percent" class="form-control"
@@ -99,42 +102,43 @@
                             <small class="text-muted">Example: Mid 30%, Final 40%, etc.</small>
                         </div>
 
-                        {{-- Passing Marks --}}
+                        {{-- Passing --}}
                         <div class="col-md-4">
                             <label class="form-label">Passing Marks (optional)</label>
                             <input type="number" step="0.01" min="0" name="passing_marks" class="form-control"
                                    value="{{ old('passing_marks') }}">
+                            <small class="text-muted">If set, it must be ≤ Total Marks.</small>
                         </div>
 
-                        {{-- Start Date --}}
+                        {{-- ✅ Start Date --}}
                         <div class="col-md-6">
                             <label class="form-label">Start Date (optional)</label>
                             <input type="datetime-local" name="start_date" class="form-control"
                                    value="{{ old('start_date') }}">
                         </div>
 
-                        {{-- End Date --}}
+                        {{-- ✅ End Date --}}
                         <div class="col-md-6">
                             <label class="form-label">Due/End Date (optional)</label>
                             <input type="datetime-local" name="end_date" class="form-control"
                                    value="{{ old('end_date') }}">
                         </div>
 
-                        {{-- Duration --}}
+                        {{-- ✅ Duration --}}
                         <div class="col-md-6">
                             <label class="form-label">Duration (minutes)</label>
                             <input type="number" min="1" name="duration_minutes" class="form-control"
                                    value="{{ old('duration_minutes', 60) }}">
                         </div>
 
-                        {{-- Attempts Allowed --}}
+                        {{-- ✅ Attempts --}}
                         <div class="col-md-6">
                             <label class="form-label">Attempts Allowed</label>
                             <input type="number" min="1" name="attempts_allowed" class="form-control"
                                    value="{{ old('attempts_allowed', 1) }}">
                         </div>
 
-                        {{-- Randomize --}}
+                        {{-- ✅ Randomize --}}
                         <div class="col-12">
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" name="randomize_questions" value="1"
@@ -151,32 +155,4 @@
             </div>
         </div>
     </div>
-
-    {{-- ✅ إذا بدك AJAX بدل reload: فعّل الكود تحت (يتطلب route coursesByClass) --}}
-    {{--
-    <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        var classSelect = document.getElementById('class_id');
-        var courseSelect = document.getElementById('course_id');
-
-        classSelect.addEventListener('change', function () {
-            var classId = this.value;
-            courseSelect.innerHTML = '<option value="">Loading...</option>';
-
-            fetch("{{ route('assessments.coursesByClass') }}?class_id=" + classId)
-                .then(function (res) { return res.json(); })
-                .then(function (data) {
-                    var html = '<option value="">-- Select Course --</option>';
-                    for (var i = 0; i < data.length; i++) {
-                        html += '<option value="' + data[i].id + '">' + data[i].course_name + '</option>';
-                    }
-                    courseSelect.innerHTML = html;
-                })
-                .catch(function () {
-                    courseSelect.innerHTML = '<option value="">-- Select Course --</option>';
-                });
-        });
-    });
-    </script>
-    --}}
 @endsection
