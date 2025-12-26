@@ -58,7 +58,7 @@ use App\Http\Controllers\AssessmentDashboardController;
 
 use App\Http\Controllers\ReportsExportController;
 use App\Http\Controllers\ReportsPageController;
-
+use App\Http\Controllers\MessagingController;
 
 
 /*
@@ -181,7 +181,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/students/edit/{id}', [UserController::class, 'editStudent'])->name('student.edit.show');
     Route::get('/students/view/list', [UserController::class, 'getStudentList'])->name('student.list.show');
     Route::get('/students/view/profile/{id}', [UserController::class, 'showStudentProfile'])->name('student.profile.show');
-    Route::get('/students/view/attendance/{id}', [AttendanceController::class, 'showStudentAttendance'])->name('student.attendance.show');
+    Route::get('/students/view/attendance/{id}', [AttendanceController::class, 'showStudentAttendance'])
+        ->name('student.attendance.show')
+        ->middleware('auth');
 
     /*
     |--------------------------------------------------------------------------
@@ -427,5 +429,18 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/reports/class-gradebook/pdf', [ReportsExportController::class, 'classGradebookPdf'])
         ->name('reports.class.gradebook.pdf');
 
+
+
+    Route::middleware(['auth'])->group(function () {
+        Route::get('/messages', [MessagingController::class, 'index'])->name('messages.index');
+
+        // AJAX endpoints (session)
+        Route::get('/messages/conversations', [MessagingController::class, 'conversations']);
+        Route::post('/messages/start', [MessagingController::class, 'start']);
+        Route::get('/messages/{id}/list', [MessagingController::class, 'messages']);
+        Route::post('/messages/{id}/send', [MessagingController::class, 'send']);
+        Route::post('/messages/{id}/admin-join', [MessagingController::class, 'adminJoin']);
+        Route::get('/messages/users/search', [MessagingController::class, 'userSearch']);
+    });
 
 });

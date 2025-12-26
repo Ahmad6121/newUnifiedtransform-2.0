@@ -22,9 +22,9 @@
 
                         @include('session-messages')
 
-                        {{-- 🔹 Cards أعلى الصفحة --}}
+                        {{-- ====== Top Cards ====== --}}
                         <div class="row mb-4">
-                            {{-- عدد الأبناء --}}
+                            {{-- Children count --}}
                             <div class="col-md-4">
                                 <div class="card shadow-sm">
                                     <div class="card-body">
@@ -37,7 +37,7 @@
                                 </div>
                             </div>
 
-                            {{-- عدد المعلّمين اللي بيدرّسوا الطفل النشط --}}
+                            {{-- Teachers count --}}
                             <div class="col-md-4">
                                 <div class="card shadow-sm">
                                     <div class="card-body">
@@ -50,11 +50,12 @@
                                 </div>
                             </div>
 
-                            {{-- الصف والشعبة للطفل النشط --}}
+                            {{-- Class & Section --}}
                             <div class="col-md-4">
                                 <div class="card shadow-sm">
                                     <div class="card-body">
                                         <h6 class="card-subtitle mb-2 text-muted">Class & Section</h6>
+
                                         @if($activeChild && $promotion_info && $promotion_info->section && $promotion_info->section->schoolClass)
                                             <h5 class="card-title mb-1">
                                                 {{ $promotion_info->section->schoolClass->class_name }}
@@ -71,60 +72,74 @@
                             </div>
                         </div>
 
-                        {{-- 🔹 Events + Notices --}}
+                        {{-- ====== Events + Latest Notices ====== --}}
                         <div class="row mb-4">
-                            <div class="row row-cols-2 mt-4">
-                                <div class="col">
-                                    <div class="card mb-3">
-                                        <div class="card-header bg-transparent"><i class="bi bi-calendar-event me-2"></i> Events</div>
-                                        <div class="card-body text-dark">
-                                            @include('components.events.event-calendar', ['editable' => 'false', 'selectable' => 'false'])
-                                            {{-- <div class="overflow-auto" style="height: 250px;">
-                                                <div class="list-group">
-                                                    <a href="#" class="list-group-item list-group-item-action">
-                                                        <div class="d-flex w-100 justify-content-between">
-                                                        <h5 class="mb-1">List group item heading</h5>
-                                                        <small>3 days ago</small>
-                                                        </div>
-                                                        <p class="mb-1">Some placeholder content in a paragraph.</p>
-                                                        <small>And some small print.</small>
-                                                    </a>
-                                                </div>
-                                            </div> --}}
-                                        </div>
+                            {{-- Events --}}
+                            <div class="col-lg-7 mb-3">
+                                <div class="card shadow-sm">
+                                    <div class="card-header bg-transparent">
+                                        <i class="bi bi-calendar-event me-2"></i> Events
+                                    </div>
+                                    <div class="card-body text-dark">
+                                        @include('components.events.event-calendar', ['editable' => 'false', 'selectable' => 'false'])
                                     </div>
                                 </div>
+                            </div>
 
-                            <div class="col-md-5">
-                                <div class="card shadow-sm mb-3">
-                                    <div class="card-header">
-                                        <i class="bi bi-megaphone"></i> Latest Notices
+                            {{-- Latest Notices --}}
+                            <div class="col-lg-5 mb-3">
+                                <div class="card shadow-sm">
+                                    <div class="card-header bg-transparent">
+                                        <i class="bi bi-megaphone me-2"></i> Latest Notices
                                     </div>
+
                                     <div class="card-body">
                                         @forelse($notices as $notice)
-                                            <div class="mb-2">
-                                                <strong>{{ $notice->title ?? 'Notice' }}</strong>
-                                                <div class="small text-muted">
+                                            <div class="mb-3">
+                                                {{-- Date --}}
+                                                <div class="small text-muted mb-1">
                                                     {{ optional($notice->created_at)->format('d M Y') }}
                                                 </div>
+
+                                                {{-- Notice content (CKEditor safe short preview) --}}
+                                                <div class="fw-semibold">
+                                                    {{ \Illuminate\Support\Str::limit(strip_tags($notice->notice ?? ''), 140) }}
+                                                </div>
+
+                                                {{-- Debug (احذفها إذا ما بدك) --}}
+                                                {{--
+                                                <div class="small text-muted">
+                                                    audience: {{ $notice->audience_type }}
+                                                    roles: {{ json_encode($notice->audience_roles) }}
+                                                    users: {{ json_encode($notice->audience_users) }}
+                                                </div>
+                                                --}}
                                             </div>
+
                                             @if(!$loop->last)
                                                 <hr class="my-2">
                                             @endif
                                         @empty
                                             <p class="text-muted mb-0">No notices available.</p>
                                         @endforelse
+
+                                        {{-- Pagination (لو notices عبارة عن paginator) --}}
+                                        @if(isset($notices) && method_exists($notices, 'links'))
+                                            <div class="mt-2">
+                                                {{ $notices->links() }}
+                                            </div>
+                                        @endif
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        {{-- ملاحظة قصيرة للأهل --}}
+                        {{-- ====== Info Note ====== --}}
                         <div class="alert alert-info">
                             <i class="bi bi-info-circle"></i>
                             To view detailed information about your children, use the
-                            <strong>Students → View Students</strong> menu on the left.
-                            To see their teachers, use <strong>Teachers → View Teachers</strong>.
+                            <strong>My Children</strong> menu on the left.
+                            To see teachers, use <strong>Teachers</strong>.
                         </div>
 
                     </div>
@@ -135,4 +150,3 @@
         </div>
     </div>
 @endsection
-

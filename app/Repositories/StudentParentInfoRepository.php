@@ -11,22 +11,37 @@ class StudentParentInfoRepository
     public function store($request, $student_id)
     {
         try {
-            // 🆕 افتراضيًا ما في parent user
             $parentUserId = null;
 
-            // 🆕 إنشاء حساب لولي الأمر إذا تم إدخال إيميل وباسورد
+            // إنشاء حساب ولي الأمر فقط إذا تم إدخال إيميل وباسورد
             if (!empty($request['parent_email']) && !empty($request['parent_password'])) {
 
                 $parentUser = User::create([
-                    'first_name' => $request['father_name'] ?? 'Parent',
-                    'last_name'  => '', // حسب تصميم جدول users عندك
-                    'email'      => $request['parent_email'],
-                    'phone'      => $request['father_phone'] ?? null,
-                    'address'    => $request['parent_address'] ?? null,
-                    'password'   => Hash::make($request['parent_password']),
+                    'first_name'   => $request['father_name'] ?? 'Parent',
+                    'last_name'    => ' ', // NOT NULL (خليه مسافة لتفادي الفشل)
+                    'email'        => $request['parent_email'],
+
+                    'phone'        => $request['father_phone'] ?? '-',
+                    'address'      => $request['parent_address'] ?? '-',
+
+                    // ✅ هذا أهم سطر لحل مشكلتك الحالية
+                    'address2'     => '-', // NOT NULL في جدول users
+
+                    // ✅ خليهم NULL/افتراضي بدون ما نضيف حقول بالفورم
+                    'gender'       => null,
+                    'nationality'  => null,
+                    'city'         => null,
+                    'zip'          => null,
+                    'birthday'     => null,
+                    'religion'     => null,
+                    'blood_type'   => null,
+                    'photo'        => null,
+
+                    'role'         => 'parent',
+                    'password'     => Hash::make($request['parent_password']),
                 ]);
 
-                // إعطاء دور parent (Spatie)
+                // Spatie role
                 if (method_exists($parentUser, 'assignRole')) {
                     $parentUser->assignRole('parent');
                 }
@@ -34,7 +49,6 @@ class StudentParentInfoRepository
                 $parentUserId = $parentUser->id;
             }
 
-            // إنشاء record معلومات الأهل + ربطه بحساب الأب إن وجد
             StudentParentInfo::create([
                 'student_id'     => $student_id,
                 'father_name'    => $request['father_name'],
@@ -42,7 +56,7 @@ class StudentParentInfoRepository
                 'mother_name'    => $request['mother_name'],
                 'mother_phone'   => $request['mother_phone'],
                 'parent_address' => $request['parent_address'],
-                'parent_user_id' => $parentUserId, // 🆕 أهم سطر
+                'parent_user_id' => $parentUserId,
             ]);
 
         } catch (\Exception $e) {
@@ -64,7 +78,6 @@ class StudentParentInfoRepository
                 'mother_name'    => $request['mother_name'],
                 'mother_phone'   => $request['mother_phone'],
                 'parent_address' => $request['parent_address'],
-                // لو حاب تضيف تحديث لحساب الأب (email/password) ممكن نضيفه هنا لاحقًا
             ]);
         } catch (\Exception $e) {
             throw new \Exception('Failed to update Student Parent information. ' . $e->getMessage());

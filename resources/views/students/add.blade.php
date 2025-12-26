@@ -55,6 +55,7 @@
                                     <div id="previewPhoto"></div>
                                     <input type="hidden" id="photoHiddenInput" name="photo" value="">
                                 </div>
+
                                 <div class="col-3">
                                     <label for="inputBirthday" class="form-label">Birthday<sup><i class="bi bi-asterisk text-primary"></i></sup></label>
                                     <input type="date" class="form-control" id="inputBirthday" name="birthday" placeholder="Birthday" required>

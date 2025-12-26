@@ -2,183 +2,115 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
-use App\Models\Attendance;
 use Illuminate\Http\Request;
-use App\Interfaces\UserInterface;
-use App\Interfaces\SchoolClassInterface;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+use App\Models\StudentParentInfo;
 use App\Interfaces\SchoolSessionInterface;
-use App\Interfaces\AcademicSettingInterface;
-use App\Http\Requests\AttendanceStoreRequest;
-use App\Interfaces\SectionInterface;
-use App\Repositories\AttendanceRepository;
-use App\Repositories\CourseRepository;
-use App\Traits\SchoolSession;
+use App\Traits\SchoolSession as SchoolSessionTrait;
 
 class AttendanceController extends Controller
 {
-    use SchoolSession;
-    protected $academicSettingRepository;
+    use SchoolSessionTrait;
+
+    /** @var SchoolSessionInterface */
     protected $schoolSessionRepository;
-    protected $schoolClassRepository;
-    protected $sectionRepository;
-    protected $userRepository;
 
-    public function __construct(
-        UserInterface $userRepository,
-        AcademicSettingInterface $academicSettingRepository,
-        SchoolSessionInterface $schoolSessionRepository,
-        SchoolClassInterface $schoolClassRepository,
-        SectionInterface $sectionRepository
-    ) {
-        $this->middleware(['can:view attendances']);
-
-        $this->userRepository = $userRepository;
-        $this->academicSettingRepository = $academicSettingRepository;
+    public function __construct(SchoolSessionInterface $schoolSessionRepository)
+    {
+        $this->middleware('auth');
         $this->schoolSessionRepository = $schoolSessionRepository;
-        $this->schoolClassRepository = $schoolClassRepository;
-        $this->sectionRepository = $sectionRepository;
-    }
-    /**
-     * Display a listing of the resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
-    public function index()
-    {
-        return back();
-        // $academic_setting = $this->academicSettingRepository->getAcademicSetting();
-
-        // $current_school_session_id = $this->getSchoolCurrentSession();
-
-        // $classes_and_sections = $this->schoolClassRepository->getClassesAndSections($current_school_session_id);
-        // $courseRepository = new CourseRepository();
-        // $courses = $courseRepository->getAll($current_school_session_id);
-
-        // $data = [
-        //     'academic_setting'      => $academic_setting,
-        //     'classes_and_sections'  => $classes_and_sections,
-        //     'courses'               => $courses,
-        // ];
-
-        // return view('attendances.index', $data);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     * 
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
-     */
-    public function create(Request $request)
+    public function showStudentAttendance($id)
     {
-        if($request->query('class_id') == null){
-            return abort(404);
+        $user = Auth::user();
+        $studentId = (int) $id;
+
+        // ✅ Student: يشوف حضوره فقط
+        if ($this->isStudent($user)) {
+            abort_unless($studentId === (int) $user->id, 403);
         }
-        try{
-            $academic_setting = $this->academicSettingRepository->getAcademicSetting();
-            $current_school_session_id = $this->getSchoolCurrentSession();
 
-            $class_id = $request->query('class_id');
-            $section_id = $request->query('section_id', 0);
-            $course_id = $request->query('course_id');
+        // ✅ Parent: يشوف حضور أولاده فقط
+        if ($this->isParent($user)) {
+            $isMyChild = StudentParentInfo::where('parent_user_id', (int) $user->id)
+                ->where('student_id', $studentId)
+                ->exists();
 
-            $student_list = $this->userRepository->getAllStudents($current_school_session_id, $class_id, $section_id);
+            abort_unless($isMyChild, 403);
+        }
 
-            $school_class = $this->schoolClassRepository->findById($class_id);
-            $school_section = $this->sectionRepository->findById($section_id);
+        // ✅ Admin/Teacher: مسموح (لا تعمل شي)
 
-            $attendanceRepository = new AttendanceRepository();
+        return $this->renderStudentAttendanceView($studentId);
+    }
 
-            if($academic_setting->attendance_type == 'section') {
-                $attendance_count = $attendanceRepository->getSectionAttendance($class_id, $section_id, $current_school_session_id)->count();
-            } else {
-                $attendance_count = $attendanceRepository->getCourseAttendance($class_id, $course_id, $current_school_session_id)->count();
+    private function renderStudentAttendanceView(int $studentId)
+    {
+        $sessionId = $this->getSchoolCurrentSession();
+
+        // ✅ الطالب كـ User object عشان الفيو ما يضرب
+        $student = \App\Models\User::findOrFail($studentId);
+
+        $rows = collect();
+
+        if (\Illuminate\Support\Facades\Schema::hasTable('attendances')) {
+            $q = \Illuminate\Support\Facades\DB::table('attendances');
+
+            // أعمدة الطالب (حسب الموجود)
+            if (\Illuminate\Support\Facades\Schema::hasColumn('attendances', 'student_id')) {
+                $q->where('student_id', $studentId);
+            } elseif (\Illuminate\Support\Facades\Schema::hasColumn('attendances', 'user_id')) {
+                $q->where('user_id', $studentId);
+            } elseif (\Illuminate\Support\Facades\Schema::hasColumn('attendances', 'student_user_id')) {
+                $q->where('student_user_id', $studentId);
             }
 
-            $data = [
-                'current_school_session_id' => $current_school_session_id,
-                'academic_setting'  => $academic_setting,
-                'student_list'      => $student_list,
-                'school_class'      => $school_class,
-                'school_section'    => $school_section,
-                'attendance_count'  => $attendance_count,
-            ];
-
-            return view('attendances.take', $data);
-        } catch (\Exception $e) {
-            return back()->withError($e->getMessage());
-        }
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     *
-     * @param  \Illuminate\Http\AttendanceStoreRequest  $request
-     * @return \Illuminate\Http\Response
-     */
-    public function store(AttendanceStoreRequest $request)
-    {
-        try {
-            $attendanceRepository = new AttendanceRepository();
-            $attendanceRepository->saveAttendance($request->validated());
-
-            return back()->with('status', 'Attendance save was successful!');
-        } catch (\Exception $e) {
-            return back()->withError($e->getMessage());
-        }
-    }
-
-    /**
-     * Display the specified resource.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
-     */
-    public function show(Request $request)
-    {
-        if($request->query('class_id') == null){
-            return abort(404);
-        }
-
-        $current_school_session_id = $this->getSchoolCurrentSession();
-
-        $class_id = $request->query('class_id');
-        $section_id = $request->query('section_id');
-        $course_id = $request->query('course_id');
-
-        $attendanceRepository = new AttendanceRepository();
-
-        try {
-            $academic_setting = $this->academicSettingRepository->getAcademicSetting();
-            if($academic_setting->attendance_type == 'section') {
-                $attendances = $attendanceRepository->getSectionAttendance($class_id, $section_id, $current_school_session_id);
-            } else {
-                $attendances = $attendanceRepository->getCourseAttendance($class_id, $course_id, $current_school_session_id);
+            // فلترة السيشن إذا موجودة
+            if ($sessionId && \Illuminate\Support\Facades\Schema::hasColumn('attendances', 'session_id')) {
+                $q->where('session_id', $sessionId);
             }
-            $data = ['attendances' => $attendances];
-            
-            return view('attendances.view', $data);
-        } catch (\Exception $e) {
-            return back()->withError($e->getMessage());
+
+            // ترتيب
+            if (\Illuminate\Support\Facades\Schema::hasColumn('attendances', 'date')) {
+                $q->orderBy('date', 'desc');
+            } elseif (\Illuminate\Support\Facades\Schema::hasColumn('attendances', 'attendance_date')) {
+                $q->orderBy('attendance_date', 'desc');
+            } else {
+                $q->orderBy('id', 'desc');
+            }
+
+            $rows = $q->get();
         }
+
+        return view('attendances.attendance', [
+            // ✅ أهم سطرين للفيو
+            'student'   => $student,
+            'studentId' => $studentId,
+
+            'current_school_session_id' => $sessionId,
+
+            // عشان أي أسماء قديمة داخل الفيو
+            'attendance'  => $rows,
+            'attendances' => $rows,
+            'records'     => $rows,
+        ]);
     }
 
-    public function showStudentAttendance($id) {
-        if(auth()->user()->role == "student" && auth()->user()->id != $id) {
-            return abort(404);
-        }
-        $current_school_session_id = $this->getSchoolCurrentSession();
 
-        $attendanceRepository = new AttendanceRepository();
-        $attendances = $attendanceRepository->getStudentAttendance($current_school_session_id, $id);
-        $student = $this->userRepository->findStudent($id);
+    // ===== Helpers =====
+    private function isStudent($user): bool
+    {
+        return (($user->role ?? null) === 'student')
+            || (method_exists($user, 'hasRole') && $user->hasRole('student'));
+    }
 
-        $data = [
-            'attendances'   => $attendances,
-            'student'       => $student,
-        ];
-
-        return view('attendances.attendance', $data);
+    private function isParent($user): bool
+    {
+        return (($user->role ?? null) === 'parent')
+            || (method_exists($user, 'hasRole') && $user->hasRole('parent'));
     }
 }

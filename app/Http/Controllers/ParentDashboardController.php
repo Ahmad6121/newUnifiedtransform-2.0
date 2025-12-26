@@ -23,7 +23,6 @@ class ParentDashboardController extends Controller
         PromotionRepository $promotionRepository,
         NoticeRepository $noticeRepository
     ) {
-        // الأهل لازم يكونوا مسجلين دخول ومعهم role parent
         $this->middleware('auth');
 
         $this->schoolSessionRepository = $schoolSessionRepository;
@@ -34,48 +33,38 @@ class ParentDashboardController extends Controller
     public function index()
     {
         $parent = Auth::user();
-
-        // 🧩 session الحالية عن طريق الـ Trait
         $current_school_session_id = $this->getSchoolCurrentSession();
 
-        // 🧒 كل الأبناء المرتبطين بهذا الـ parent
         $childrenInfos = StudentParentInfo::with('student')
             ->where('parent_user_id', $parent->id)
             ->get();
 
-        $children      = $childrenInfos->pluck('student')->filter();
+        $children      = $childrenInfos->pluck('student')->filter()->values();
         $childrenCount = $children->count();
-        $activeChild   = $children->first(); // حالياً أول طفل هو الـ active
+        $activeChild   = $children->first();
 
         $promotion_info   = null;
         $teachersForChild = collect();
         $teacherCount     = 0;
 
         if ($activeChild) {
-            // معلومات الترفيع للطفل الفعّال (عشان نعرف الصف والشعبة)
             $promotion_info = $this->promotionRepository
                 ->getPromotionInfoById($current_school_session_id, $activeChild->id);
 
             if ($promotion_info) {
-                // كل المعلّمين اللي بيدرّسوا هذا الصف + هذه الشعبة
                 $assigned = AssignedTeacher::with('teacher')
                     ->where('class_id', $promotion_info->class_id)
                     ->where('section_id', $promotion_info->section_id)
                     ->where('session_id', $current_school_session_id)
                     ->get();
 
-                $teachersForChild = $assigned
-                    ->pluck('teacher')
-                    ->filter()
-                    ->unique('id')
-                    ->values();
-
+                $teachersForChild = $assigned->pluck('teacher')->filter()->unique('id')->values();
                 $teacherCount = $teachersForChild->count();
             }
         }
 
-        // آخر الإعلانات (نفس اللي في home)
-        $notices = $this->noticeRepository->getAll($current_school_session_id);
+        // ✅ أهم سطر: فقط اللي مسموح للـ parent يشوفه
+        $notices = $this->noticeRepository->getAllVisible($current_school_session_id, $parent);
 
         return view('parent.dashboard', [
             'parent'             => $parent,
@@ -93,14 +82,13 @@ class ParentDashboardController extends Controller
     public function progress()
     {
         $parent = Auth::user();
-
         $current_school_session_id = $this->getSchoolCurrentSession();
 
         $childrenInfos = StudentParentInfo::with('student')
             ->where('parent_user_id', $parent->id)
             ->get();
 
-        $children    = $childrenInfos->pluck('student')->filter();
+        $children    = $childrenInfos->pluck('student')->filter()->values();
         $activeChild = $children->first();
 
         return view('parent.progress', [

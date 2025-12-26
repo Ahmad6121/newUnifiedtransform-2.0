@@ -6,26 +6,22 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class NoticeStoreRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     *
-     * @return bool
-     */
     public function authorize()
     {
-        return auth()->user()->can('create notices');
+        return true; // أو خليها حسب صلاحياتك
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array
-     */
     public function rules()
     {
         return [
-            'notice'    => 'required',
-            'session_id'=> 'required',
+            'session_id'      => ['required', 'integer'],
+            'notice'          => ['required', 'string'],
+            'audience_type'   => ['required', 'in:all,roles,users'],
+
+            'audience_roles'   => ['nullable', 'array', 'required_if:audience_type,roles', 'min:1'],
+            'audience_roles.*' => ['string'],
+
+            'audience_users'  => ['nullable', 'string', 'required_if:audience_type,users'],
         ];
     }
 }

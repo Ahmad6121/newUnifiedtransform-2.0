@@ -2,6 +2,10 @@
     <div class="d-flex flex-column align-items-center align-items-sm-start min-vh-100">
         <ul class="nav flex-column pt-2 w-100">
 
+            @php
+                $u = Auth::user();
+            @endphp
+
             {{-- Dashboard --}}
             <li class="nav-item">
                 <a class="nav-link {{ request()->is('home') ? 'active' : '' }}" href="{{ url('home') }}">
@@ -35,7 +39,7 @@
             @endcan
 
             {{-- Students / My Children + Teachers (للأدمن و المدرّس و الأهل) --}}
-            @if(Auth::user()->role != 'student')
+            @if($u && $u->role != 'student')
 
                 {{-- Parent: My Children --}}
                 @if(auth()->user()->hasRole('parent'))
@@ -65,7 +69,7 @@
                                 </a>
                             </li>
 
-                            @if (!session()->has('browse_session_id') && Auth::user()->role == "admin")
+                            @if (!session()->has('browse_session_id') && $u && $u->role == "admin")
                                 <li class="nav-item w-100" style="{{ request()->routeIs('student.create.show') ? 'font-weight:bold;' : '' }}">
                                     <a class="nav-link" href="{{ route('student.create.show') }}">
                                         <i class="bi bi-person-plus me-2"></i> Add Student
@@ -94,7 +98,7 @@
                             </a>
                         </li>
 
-                        @if (!session()->has('browse_session_id') && Auth::user()->role == 'admin')
+                        @if (!session()->has('browse_session_id') && $u && $u->role == 'admin')
                             <li class="nav-item w-100" style="{{ request()->routeIs('teacher.create.show') ? 'font-weight:bold;' : '' }}">
                                 <a class="nav-link" href="{{ route('teacher.create.show') }}">
                                     <i class="bi bi-person-plus me-2"></i> Add Teacher
@@ -106,7 +110,7 @@
             @endif
 
             {{-- Teacher menu --}}
-            @if (Auth::user()->role == 'teacher')
+            @if ($u && $u->role == 'teacher')
                 <li class="nav-item">
                     <a class="nav-link {{ (request()->is('courses/teacher*') || request()->is('courses/assignments*')) ? 'active' : '' }}"
                        href="{{ route('course.teacher.list.show') }}">
@@ -117,10 +121,10 @@
             @endif
 
             {{-- Student menu --}}
-            @if (Auth::user()->role == 'student')
+            @if ($u && $u->role == 'student')
                 <li class="nav-item">
                     <a class="nav-link {{ request()->routeIs('student.attendance.show') ? 'active' : '' }}"
-                       href="{{ route('student.attendance.show', ['id' => Auth::user()->id]) }}">
+                       href="{{ route('student.attendance.show', ['id' => $u->id]) }}">
                         <i class="bi bi-calendar2-week"></i>
                         <span class="ms-1 d-inline d-sm-none d-md-none d-xl-inline">Attendance</span>
                     </a>
@@ -128,7 +132,7 @@
 
                 <li class="nav-item">
                     <a class="nav-link {{ request()->routeIs('course.student.list.show') ? 'active' : '' }}"
-                       href="{{ route('course.student.list.show', ['student_id' => Auth::user()->id]) }}">
+                       href="{{ route('course.student.list.show', ['student_id' => $u->id]) }}">
                         <i class="bi bi-journal-medical"></i>
                         <span class="ms-1 d-inline d-sm-none d-md-none d-xl-inline">Courses</span>
                     </a>
@@ -138,13 +142,13 @@
                     @php
                         if (session()->has('browse_session_id')) {
                             $class_info = \App\Models\Promotion::where('session_id', session('browse_session_id'))
-                                ->where('student_id', Auth::user()->id)
+                                ->where('student_id', $u->id)
                                 ->first();
                         } else {
                             $latest_session = \App\Models\SchoolSession::latest()->first();
                             if ($latest_session) {
                                 $class_info = \App\Models\Promotion::where('session_id', $latest_session->id)
-                                    ->where('student_id', Auth::user()->id)
+                                    ->where('student_id', $u->id)
                                     ->first();
                             } else {
                                 $class_info = null;
@@ -173,7 +177,8 @@
                         || request()->is('gradebook*')
                         || request()->is('reports*')
                         || request()->is('report-card*')
-                        || request()->is('student/grades*');
+                        || request()->is('student/grades*')
+                        || request()->is('parent/children*');
                 @endphp
 
                 <a type="button"
@@ -188,7 +193,7 @@
                 <ul class="nav collapse {{ $isAssessmentsActive ? 'show' : 'hide' }} bg-white" id="exams-grades-submenu">
 
                     {{-- Admin/Teacher --}}
-                    @if(Auth::user()->role == 'admin' || Auth::user()->role == 'teacher')
+                    @if($u && ($u->role == 'admin' || $u->role == 'teacher'))
                         <li class="nav-item w-100" style="{{ request()->routeIs('assessments.dashboard') ? 'font-weight:bold;' : '' }}">
                             <a class="nav-link" href="{{ route('assessments.dashboard') }}">
                                 <i class="bi bi-speedometer2 me-2"></i> Dashboard
@@ -221,7 +226,7 @@
                     @endif
 
                     {{-- Student --}}
-                    @if(Auth::user()->role == 'student')
+                    @if($u && $u->role == 'student')
                         <li class="nav-item w-100" style="{{ request()->routeIs('student.assessments.available') ? 'font-weight:bold;' : '' }}">
                             <a class="nav-link" href="{{ route('student.assessments.available') }}">
                                 <i class="bi bi-ui-checks-grid me-2"></i> My Exams
@@ -241,10 +246,33 @@
                         </li>
                     @endif
 
-                    {{-- Parent --}}
-                    @if(auth()->user()->hasRole('parent'))
-                        <li class="nav-item w-100" style="{{ request()->routeIs('parent.children') ? 'font-weight:bold;' : '' }}">
-                            <a class="nav-link" href="{{ route('parent.children') }}">
+                    {{-- Parent (UPDATED ✅) --}}
+                    @if($u && auth()->user()->hasRole('parent'))
+                        @php
+                            // أول طفل مربوط لهذا الـ parent
+                            $firstChildInfo = \App\Models\StudentParentInfo::with('student')
+                                ->where('parent_user_id', $u->id)
+                                ->first();
+
+                            $firstChildId = null;
+                            if ($firstChildInfo && $firstChildInfo->student) {
+                                $firstChildId = $firstChildInfo->student->id;
+                            }
+
+                            // إذا في طفل: ودّيه مباشرة لنتائج الطفل (Report Card)
+                            // إذا ما في طفل: ودّيه لصفحة My Children عشان يربط/يختار
+                            $parentResultsUrl = $firstChildId
+                                ? route('reportcard.child', ['student' => $firstChildId])
+                                : route('parent.children');
+
+                            $isParentResultsActive =
+                                request()->routeIs('reportcard.child')
+                                || request()->is('report-card/child/*')
+                                || request()->is('parent/children/*/report-card');
+                        @endphp
+
+                        <li class="nav-item w-100" style="{{ $isParentResultsActive ? 'font-weight:bold;' : '' }}">
+                            <a class="nav-link" href="{{ $parentResultsUrl }}">
                                 <i class="bi bi-people me-2"></i> Children Results
                             </a>
                         </li>
@@ -254,7 +282,7 @@
             </li>
 
             {{-- Admin-only block --}}
-            @if (Auth::user()->role == 'admin')
+            @if ($u && $u->role == 'admin')
 
                 <li class="nav-item">
                     <a href="{{ route('admin.users.index') }}" class="nav-link {{ request()->is('admin/users*') ? 'active' : '' }}">
@@ -321,6 +349,14 @@
                     </a>
                 </li>
             @endif
+
+            {{-- Messages / Chat --}}
+            <li class="nav-item">
+                <a class="nav-link {{ request()->is('messages*') ? 'active' : '' }}" href="{{ route('messages.index') }}">
+                    <i class="bi bi-chat-dots"></i>
+                    <span class="ms-1 d-inline d-sm-none d-md-none d-xl-inline">Messages</span>
+                </a>
+            </li>
 
             {{-- Payments --}}
             <li class="nav-item">
