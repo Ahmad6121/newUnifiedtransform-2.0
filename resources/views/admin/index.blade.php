@@ -2,24 +2,35 @@
 
 @section('content')
     <div class="container">
-        <h1 class="mb-4">إدارة صلاحيات المستخدمين</h1>
+        <h1 class="mb-4">Manage User Permissions</h1>
 
         @if (session('success'))
             <div class="alert alert-success">{{ session('success') }}</div>
         @endif
 
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+
+            </div>
+
+            <a href="{{ url()->previous() }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+        </div>
+
+
         {{-- 🔍 مربع البحث --}}
         <div class="row mb-3">
             <div class="col-md-6">
-                <input type="text" id="searchInput" class="form-control" placeholder="ابحث عن مستخدم بالاسم أو البريد...">
+                <input type="text" id="searchInput" class="form-control" placeholder="Search users by name or email">
             </div>
             <div class="col-md-3">
                 <select id="sortSelect" class="form-select">
-                    <option value="">ترتيب حسب...</option>
-                    <option value="name_asc">الاسم (A-Z)</option>
-                    <option value="name_desc">الاسم (Z-A)</option>
-                    <option value="role_asc">الدور (A-Z)</option>
-                    <option value="role_desc">الدور (Z-A)</option>
+                    <option value="">Sort by</option>
+                    <option value="name_asc">Name (A-Z)</option>
+                    <option value="name_desc">Name (Z-A)</option>
+                    <option value="role_asc">Roles (A-Z)</option>
+                    <option value="role_desc">Roles (Z-A)</option>
                 </select>
             </div>
         </div>
@@ -28,10 +39,10 @@
         <table class="table table-hover table-bordered" id="usersTable">
             <thead class="table-light">
             <tr>
-                <th>الاسم</th>
-                <th>البريد</th>
-                <th>الأدوار الحالية</th>
-                <th width="150">التحكم</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Current Roles</th>
+                <th width="150">Actions</th>
             </tr>
             </thead>
             <tbody>
@@ -67,7 +78,7 @@
                     <td class="user-role">${roles}</td>
                     <td>
                         <a href="/admin/users/${user.id}/edit" class="btn btn-sm btn-primary">
-                            <i class="bi bi-pencil-square"></i> تعديل
+                            <i class="bi bi-pencil-square"></i> Actions
                         </a>
                     </td>
                 </tr>`;

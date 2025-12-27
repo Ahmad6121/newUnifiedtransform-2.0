@@ -15,8 +15,9 @@
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h4 class="mb-0">Assessments</h4>
             @if(in_array(Auth::user()->role, ['admin','teacher']))
-                <a class="btn btn-primary" href="{{ route('assessments.create') }}">Create Assessment</a>
-            @endif
+                <a href="{{ url()->previous() }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Back
+                </a>            @endif
         </div>
 
         <div class="card">

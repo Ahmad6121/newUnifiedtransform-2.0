@@ -15,7 +15,9 @@
             </div>
 
             <div>
-                <a class="btn btn-outline-secondary" href="{{ route('gradebook.index') }}">Back</a>
+                <a href="{{ url()->previous() }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Back
+                </a>
             </div>
         </div>
 

@@ -10,7 +10,13 @@
             </div>
 
             @if(in_array(Auth::user()->role, ['admin','teacher']))
-                <a class="btn btn-dark" href="{{ route('assessments.create') }}">+ Create Assessment</a>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+
+
+                    <a href="{{ url()->previous() }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back
+                    </a>
+                </div>
             @endif
         </div>
 

@@ -5,6 +5,9 @@
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h3>Books</h3>
             <a href="{{ route('library.books.create') }}" class="btn btn-primary">Add Book</a>
+            <a href="{{ url()->previous() }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
         </div>
 
         @if(session('status'))

@@ -7,7 +7,14 @@
                 <h3 class="mb-0">Create Assessment</h3>
                 <small class="text-muted">Teacher creates an assessment and assigns weight + marks</small>
             </div>
-            <a href="{{ route('assessments.index') }}" class="btn btn-outline-secondary">Back</a>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+
+
+                <a href="{{ url()->previous() }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Back
+                </a>
+            </div>
+
         </div>
 
         @if ($errors->any())

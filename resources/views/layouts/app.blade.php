@@ -24,7 +24,7 @@
     <link rel="dns-prefetch" href="//fonts.gstatic.com">
     <link href="https://fonts.googleapis.com/css?family=Nunito" rel="stylesheet">
 
-   
+
     <link href="{{ asset('css/bootstrap.min.css') }}" rel="stylesheet">
     <link href="{{ asset('css/app.css') }}" rel="stylesheet">
 </head>
@@ -103,7 +103,8 @@
     </div>
 
     <div id="watermark">
-        <p>Unifiedtransform</p>
+        <p><p>{{ config('app.name') }}</p>
+        </p>
     </div>
 </body>
 </html>
