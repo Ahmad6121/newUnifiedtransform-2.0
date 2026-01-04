@@ -9,18 +9,9 @@
                 <div class="row pt-2">
                     <div class="col ps-4">
 
-                        <div class="d-flex align-items-center justify-content-between mb-3">
-                            <h1 class="display-6 mb-0">
-                                <i class="bi bi-bar-chart-line"></i> My Grades
-                            </h1>
-
-                            {{-- ✅ FIX: route student.report.card غير موجود --}}
-                            @if(\Illuminate\Support\Facades\Route::has('reportcard.my'))
-                                <a href="{{ route('reportcard.my') }}" class="btn btn-outline-primary">
-                                    <i class="bi bi-file-earmark-text"></i> Report Card
-                                </a>
-                            @endif
-                        </div>
+                        <h1 class="display-6 mb-3">
+                            <i class="bi bi-bar-chart-line"></i> My Grades
+                        </h1>
 
                         <nav aria-label="breadcrumb">
                             <ol class="breadcrumb">
@@ -29,60 +20,51 @@
                             </ol>
                         </nav>
 
-                        @include('session-messages')
+                        @if(!empty($note))
+                            <div class="alert alert-warning">{{ $note }}</div>
+                        @endif
 
                         <div class="card shadow-sm">
-                            <div class="card-body">
-
-                                {{-- لو الكنترولر ببعت grades/rows/records بأي اسم، بنحاول نعرض الموجود --}}
-                                @php
-                                    $rows =
-                                        $grades
-                                        ?? $records
-                                        ?? $results
-                                        ?? $marks
-                                        ?? null;
-                                @endphp
-
-                                @if(is_iterable($rows) && count($rows))
-                                    <div class="table-responsive">
-                                        <table class="table table-striped align-middle">
-                                            <thead>
-                                            <tr>
-                                                <th>Course</th>
-                                                <th>Assessment</th>
-                                                <th class="text-center">Score</th>
-                                                <th class="text-center">Max</th>
-                                                <th class="text-end">Date</th>
-                                            </tr>
-                                            </thead>
-                                            <tbody>
-                                            @foreach($rows as $r)
-                                                <tr>
-                                                    <td>{{ $r->course_name ?? optional($r->course)->course_name ?? '-' }}</td>
-                                                    <td>{{ $r->assessment_title ?? optional($r->assessment)->title ?? '-' }}</td>
-                                                    <td class="text-center">{{ $r->score ?? $r->marks ?? '-' }}</td>
-                                                    <td class="text-center">{{ $r->max_score ?? $r->total ?? '-' }}</td>
-                                                    <td class="text-end">
-                                                        {{ optional($r->created_at ?? $r->date ?? null)->format('d M Y') ?? '-' }}
-                                                    </td>
-                                                </tr>
-                                            @endforeach
-                                            </tbody>
-                                        </table>
-                                    </div>
-
-                                    {{-- pagination لو موجود --}}
-                                    @if(method_exists($rows, 'links'))
-                                        <div class="mt-2">
-                                            {{ $rows->links() }}
-                                        </div>
-                                    @endif
-                                @else
-                                    <p class="text-muted mb-0">No grades available yet.</p>
-                                @endif
-
+                            <div class="card-body p-0">
+                                <table class="table table-striped mb-0">
+                                    <thead class="table-light">
+                                    <tr>
+                                        <th>Course</th>
+                                        <th>Assessment</th>
+                                        <th>Type</th>
+                                        <th class="text-end">Mark</th>
+                                        <th class="text-end">Total</th>
+                                        <th class="text-end">Weight %</th>
+                                        <th class="text-end">Percent</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    @forelse(($rows ?? []) as $r)
+                                        <tr>
+                                            <td>{{ $r['course'] }}</td>
+                                            <td>{{ $r['assessment'] }}</td>
+                                            <td>{{ $r['type'] }}</td>
+                                            <td class="text-end">{{ number_format($r['mark'], 2) }}</td>
+                                            <td class="text-end">{{ number_format($r['total'], 2) }}</td>
+                                            <td class="text-end">{{ number_format($r['weight'], 2) }}</td>
+                                            <td class="text-end">{{ number_format($r['percent'], 2) }}%</td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="7" class="text-center py-4 text-muted">
+                                                No grades available yet.
+                                            </td>
+                                        </tr>
+                                    @endforelse
+                                    </tbody>
+                                </table>
                             </div>
+                        </div>
+
+                        <div class="mt-3">
+                            <a class="btn btn-outline-dark" href="{{ route('reportcard.my') }}">
+                                <i class="bi bi-file-earmark-text"></i> View Full Report Card
+                            </a>
                         </div>
 
                     </div>

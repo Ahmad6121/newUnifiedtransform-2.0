@@ -22,35 +22,32 @@
 
                         @include('session-messages')
 
-                        {{-- ====== Top Cards ====== --}}
                         <div class="row mb-4">
-                            {{-- Children count --}}
                             <div class="col-md-4">
                                 <div class="card shadow-sm">
                                     <div class="card-body">
                                         <h6 class="card-subtitle mb-2 text-muted">Children</h6>
                                         <h3 class="card-title">{{ $childrenCount ?? 0 }}</h3>
-                                        <p class="mb-0 small text-muted">
-                                            Number of children linked to your account
-                                        </p>
+                                        <p class="mb-0 small text-muted">Number of children linked to your account</p>
+
+                                        <a class="btn btn-sm btn-outline-primary mt-2"
+                                           href="{{ \Illuminate\Support\Facades\Route::has('parent.children') ? route('parent.children') : url('/parent/children') }}">
+                                            View Children
+                                        </a>
                                     </div>
                                 </div>
                             </div>
 
-                            {{-- Teachers count --}}
                             <div class="col-md-4">
                                 <div class="card shadow-sm">
                                     <div class="card-body">
                                         <h6 class="card-subtitle mb-2 text-muted">Teachers</h6>
                                         <h3 class="card-title">{{ $teacherCount ?? 0 }}</h3>
-                                        <p class="mb-0 small text-muted">
-                                            Teachers teaching your active child
-                                        </p>
+                                        <p class="mb-0 small text-muted">Teachers teaching your active child</p>
                                     </div>
                                 </div>
                             </div>
 
-                            {{-- Class & Section --}}
                             <div class="col-md-4">
                                 <div class="card shadow-sm">
                                     <div class="card-body">
@@ -64,6 +61,11 @@
                                             <p class="mb-0 small text-muted">
                                                 Active child: {{ $activeChild->first_name }} {{ $activeChild->last_name }}
                                             </p>
+
+                                            <a class="btn btn-sm btn-outline-dark mt-2"
+                                               href="{{ \Illuminate\Support\Facades\Route::has('parent.reportcard.child') ? route('parent.reportcard.child', $activeChild->id) : url('/parent/children/'.$activeChild->id.'/report-card') }}">
+                                                Open Report Card
+                                            </a>
                                         @else
                                             <p class="mb-0 text-muted">No active child selected.</p>
                                         @endif
@@ -72,9 +74,7 @@
                             </div>
                         </div>
 
-                        {{-- ====== Events + Latest Notices ====== --}}
                         <div class="row mb-4">
-                            {{-- Events --}}
                             <div class="col-lg-7 mb-3">
                                 <div class="card shadow-sm">
                                     <div class="card-header bg-transparent">
@@ -86,7 +86,6 @@
                                 </div>
                             </div>
 
-                            {{-- Latest Notices --}}
                             <div class="col-lg-5 mb-3">
                                 <div class="card shadow-sm">
                                     <div class="card-header bg-transparent">
@@ -96,24 +95,12 @@
                                     <div class="card-body">
                                         @forelse($notices as $notice)
                                             <div class="mb-3">
-                                                {{-- Date --}}
                                                 <div class="small text-muted mb-1">
                                                     {{ optional($notice->created_at)->format('d M Y') }}
                                                 </div>
-
-                                                {{-- Notice content (CKEditor safe short preview) --}}
                                                 <div class="fw-semibold">
                                                     {{ \Illuminate\Support\Str::limit(strip_tags($notice->notice ?? ''), 140) }}
                                                 </div>
-
-                                                {{-- Debug (احذفها إذا ما بدك) --}}
-                                                {{--
-                                                <div class="small text-muted">
-                                                    audience: {{ $notice->audience_type }}
-                                                    roles: {{ json_encode($notice->audience_roles) }}
-                                                    users: {{ json_encode($notice->audience_users) }}
-                                                </div>
-                                                --}}
                                             </div>
 
                                             @if(!$loop->last)
@@ -123,23 +110,19 @@
                                             <p class="text-muted mb-0">No notices available.</p>
                                         @endforelse
 
-                                        {{-- Pagination (لو notices عبارة عن paginator) --}}
                                         @if(isset($notices) && method_exists($notices, 'links'))
-                                            <div class="mt-2">
-                                                {{ $notices->links() }}
-                                            </div>
+                                            <div class="mt-2">{{ $notices->links() }}</div>
                                         @endif
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        {{-- ====== Info Note ====== --}}
                         <div class="alert alert-info">
                             <i class="bi bi-info-circle"></i>
-                            To view detailed information about your children, use the
-                            <strong>My Children</strong> menu on the left.
-                            To see teachers, use <strong>Teachers</strong>.
+                            To view report cards for your children, go to
+                            <strong>Exams & Grades</strong> → <strong>Children Report Cards</strong>
+                            أو من <strong>My Children</strong>.
                         </div>
 
                     </div>

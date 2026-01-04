@@ -21,51 +21,67 @@
                 <div class="card shadow-sm border-0">
                     <div class="card-body">
                         <div class="text-muted">Income</div>
-                        <div class="h4 mb-0 text-success">${{ number_format($income,2) }}</div>
+                        <div class="h4 mb-0 text-success">${{ number_format($income ?? 0, 2) }}</div>
                     </div>
                 </div>
             </div>
+
             <div class="col-md-3">
                 <div class="card shadow-sm border-0">
                     <div class="card-body">
                         <div class="text-muted">Expenses</div>
-                        <div class="h4 mb-0 text-danger">${{ number_format($expenses,2) }}</div>
+                        <div class="h4 mb-0 text-danger">${{ number_format($expenses ?? 0, 2) }}</div>
                     </div>
                 </div>
             </div>
+
             <div class="col-md-3">
                 <div class="card shadow-sm border-0">
                     <div class="card-body">
                         <div class="text-muted">Salaries</div>
-                        <div class="h4 mb-0 text-warning">${{ number_format($salaries,2) }}</div>
+                        <div class="h4 mb-0 text-warning">${{ number_format($salaries ?? 0, 2) }}</div>
                     </div>
                 </div>
             </div>
+
             <div class="col-md-3">
                 <div class="card shadow-sm border-0">
                     <div class="card-body">
                         <div class="text-muted">Net</div>
-                        <div class="h4 mb-0">{{ $net >= 0 ? '$'.number_format($net,2) : '-$'.number_format(abs($net),2) }}</div>
+                        @php $netVal = $net ?? 0; @endphp
+                        <div class="h4 mb-0">
+                            {{ $netVal >= 0 ? '$'.number_format($netVal,2) : '-$'.number_format(abs($netVal),2) }}
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="row g-3">
+            {{-- Recent Expenses --}}
             <div class="col-md-6">
                 <div class="card shadow-sm border-0">
                     <div class="card-header bg-white fw-bold">Recent Expenses</div>
                     <div class="card-body p-0">
                         <table class="table mb-0">
-                            <thead><tr><th>Title</th><th>Date</th><th class="text-end">Amount</th></tr></thead>
+                            <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Date</th>
+                                <th class="text-end">Amount</th>
+                            </tr>
+                            </thead>
                             <tbody>
-                            @forelse($recentSalaries as $p)
+                            @forelse(($recentExpenses ?? collect()) as $e)
                                 <tr>
-                                    <td>{{ $p->employee_name ?? 'Employee' }}</td>
-                                    <td>{{ $p->month_label ?? '-' }}</td>
+                                    <td>{{ $e->title ?? '-' }}</td>
+                                    <td>{{ $e->date_label ?? '-' }}</td>
+                                    <td class="text-end text-danger">${{ number_format((float)($e->amount ?? 0), 2) }}</td>
                                 </tr>
                             @empty
-                                <tr><td colspan="3" class="text-center py-3">No expenses</td></tr>
+                                <tr>
+                                    <td colspan="3" class="text-center py-3">No expenses</td>
+                                </tr>
                             @endforelse
                             </tbody>
                         </table>
@@ -73,28 +89,37 @@
                 </div>
             </div>
 
+            {{-- Recent Salary Payments --}}
             <div class="col-md-6">
                 <div class="card shadow-sm border-0">
                     <div class="card-header bg-white fw-bold">Recent Salary Payments</div>
                     <div class="card-body p-0">
                         <table class="table mb-0">
-                            <thead><tr><th>Employee</th><th>Month</th><th class="text-end">Amount</th></tr></thead>
+                            <thead>
+                            <tr>
+                                <th>Employee</th>
+                                <th>Month</th>
+                                <th class="text-end">Amount</th>
+                            </tr>
+                            </thead>
                             <tbody>
-                            @forelse($recentSalaries as $p)
+                            @forelse(($recentPayrolls ?? collect()) as $p)
                                 <tr>
-                                    <td>{{ $p->user ? trim(($p->user->first_name ?? '').' '.($p->user->last_name ?? '')) : 'Employee' }}</td>
-                                    <td>{{ optional($p->salary_month)->format('Y-m') }}</td>
-                                    <td class="text-end text-warning">${{ number_format($p->amount,2) }}</td>
+                                    <td>{{ $p->employee_name ?? 'Employee' }}</td>
+                                    <td>{{ $p->month_label ?? '-' }}</td>
+                                    <td class="text-end text-warning">${{ number_format((float)($p->amount ?? 0), 2) }}</td>
                                 </tr>
                             @empty
-                                <tr><td colspan="3" class="text-center py-3">No salary payments</td></tr>
+                                <tr>
+                                    <td colspan="3" class="text-center py-3">No salary payments</td>
+                                </tr>
                             @endforelse
                             </tbody>
                         </table>
                     </div>
                 </div>
             </div>
-        </div>
 
+        </div>
     </div>
 @endsection

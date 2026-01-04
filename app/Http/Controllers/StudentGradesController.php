@@ -7,6 +7,7 @@ use App\Models\AssessmentResult;
 use App\Models\Course;
 use App\Models\Promotion;
 use App\Models\SchoolSession;
+use Illuminate\Support\Facades\Auth;
 
 class StudentGradesController extends Controller
 {
@@ -18,23 +19,25 @@ class StudentGradesController extends Controller
 
     public function index()
     {
-        if (auth()->user()->role !== 'student') abort(403);
+        $student = Auth::user();
+        if (!$student || (($student->role ?? '') !== 'student')) abort(403);
 
         $sessionId = $this->currentSessionId();
 
+        // الطالب لازم يكون عنده Promotion بنفس السيشن
         $promotion = Promotion::where('session_id', $sessionId)
-            ->where('student_id', auth()->id())
+            ->where('student_id', $student->id)
             ->first();
 
         if (!$promotion) {
             return view('student.grades.index', [
-                'courses' => collect(),
+                'student' => $student,
                 'rows' => [],
-                'warning' => 'No class/section assigned for current session.'
+                'note' => 'No class/promotion found for current session.'
             ]);
         }
 
-        // courses حسب class_id + session_id (مثل migration عندك)
+        // كورسات الصف
         $courses = Course::where('session_id', $sessionId)
             ->where('class_id', $promotion->class_id)
             ->orderBy('course_name')
@@ -43,36 +46,44 @@ class StudentGradesController extends Controller
         $rows = [];
 
         foreach ($courses as $course) {
+            // نفس شروط Report Card (published + results_published)
             $assessments = Assessment::where('session_id', $sessionId)
                 ->where('course_id', $course->id)
                 ->where('status', 'published')
                 ->where('results_published', true)
+                ->orderBy('id')
                 ->get();
 
-            $weightsSum = (float) $assessments->sum('weight_percent');
-            if ($weightsSum <= 0) $weightsSum = 100.0;
-
-            $final = 0.0;
+            if ($assessments->isEmpty()) continue;
 
             foreach ($assessments as $a) {
                 $res = AssessmentResult::where('assessment_id', $a->id)
-                    ->where('student_id', auth()->id())
+                    ->where('student_id', $student->id)
                     ->first();
 
-                $mark = (float) ($res->marks_obtained ?? 0);
-                $scorePercent = ($a->total_marks > 0) ? ($mark / (float)$a->total_marks) * 100.0 : 0.0;
+                // إذا ما في نتيجة لهالـ assessment نتجاهله
+                if (!$res) continue;
 
-                $normalizedWeight = ((float)$a->weight_percent / $weightsSum) * 100.0;
-                $final += ($scorePercent * $normalizedWeight) / 100.0;
+                $mark = (float)($res->marks_obtained ?? 0);
+                $total = (float)($a->total_marks ?? 0);
+                $percent = $total > 0 ? round(($mark / $total) * 100, 2) : 0;
+
+                $rows[] = [
+                    'course' => $course->course_name,
+                    'assessment' => $a->title,
+                    'type' => $a->kind,
+                    'mark' => $mark,
+                    'total' => $total,
+                    'weight' => (float)($a->weight_percent ?? 0),
+                    'percent' => $percent,
+                ];
             }
-
-            $rows[] = [
-                'course' => $course,
-                'assessments_count' => $assessments->count(),
-                'final' => round($final, 2),
-            ];
         }
 
-        return view('student.grades.index', compact('courses','rows'));
+        return view('student.grades.index', [
+            'student' => $student,
+            'rows' => $rows,
+            'note' => null
+        ]);
     }
 }

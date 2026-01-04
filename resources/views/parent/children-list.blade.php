@@ -34,18 +34,23 @@
                                     <th>Child Last Name</th>
                                     <th>Email</th>
                                     <th>Phone</th>
-                                    <th>Actions</th>
+                                    <th style="width:240px">Actions</th>
                                 </tr>
                                 </thead>
 
                                 <tbody>
                                 @forelse($children as $child)
-                                    @php $student = $child->student; @endphp
+                                    @php
+                                        // يدعم الحالتين:
+                                        // 1) $child هو StudentParentInfo وفيه relation student
+                                        // 2) $child هو User(student) مباشرة
+                                        $student = $child->student ?? $child;
+                                    @endphp
 
                                     @if($student)
                                         <tr>
                                             <td>
-                                                @if ($student->photo)
+                                                @if (!empty($student->photo))
                                                     <img src="{{ asset('/storage'.$student->photo) }}" width="35" class="rounded">
                                                 @else
                                                     <i class="bi bi-person-square"></i>
@@ -55,10 +60,17 @@
                                             <td>{{ $student->last_name }}</td>
                                             <td class="student-email">{{ $student->email }}</td>
                                             <td>{{ $student->phone }}</td>
-                                            <td>
+                                            <td class="d-flex gap-2 flex-wrap">
                                                 <a href="{{ route('student.profile.show', $student->id) }}"
                                                    class="btn btn-sm btn-outline-primary">
                                                     View Profile
+                                                </a>
+
+                                                <a href="{{ \Illuminate\Support\Facades\Route::has('parent.reportcard.child')
+                                                    ? route('parent.reportcard.child', $student->id)
+                                                    : url('/parent/children/'.$student->id.'/report-card') }}"
+                                                   class="btn btn-sm btn-outline-dark">
+                                                    Report Card
                                                 </a>
                                             </td>
                                         </tr>
@@ -83,18 +95,15 @@
     </div>
 
     <script>
-        // 🔎 بحث سريع باسم أو إيميل الطفل
-        document.getElementById('searchInput').addEventListener('keyup', function () {
-            const term = this.value.toLowerCase();
+        document.getElementById('searchInput')?.addEventListener('keyup', function () {
+            const term = (this.value || '').toLowerCase();
             const rows = document.querySelectorAll('#childrenTable tbody tr');
 
             rows.forEach(row => {
                 const name  = row.querySelector('.student-name')?.textContent.toLowerCase() || '';
                 const email = row.querySelector('.student-email')?.textContent.toLowerCase() || '';
-
                 row.style.display = (name.includes(term) || email.includes(term)) ? '' : 'none';
             });
         });
     </script>
 @endsection
-

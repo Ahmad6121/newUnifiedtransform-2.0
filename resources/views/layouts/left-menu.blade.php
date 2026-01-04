@@ -257,7 +257,7 @@
                             || request()->is('student/grades*')
                             || request()->is('parent/children*');
                     @endphp
-
+                    @if($u && ($isAdmin || $isTeacher))
                     <a type="button"
                        href="#exams-grades-submenu"
                        data-bs-toggle="collapse"
@@ -267,8 +267,9 @@
                         <i class="ms-auto d-inline d-sm-none d-md-none d-xl-inline bi bi-chevron-down"></i>
                     </a>
 
-                    <ul class="nav collapse {{ $isAssessmentsActive ? 'show' : 'hide' }} bg-white" id="exams-grades-submenu">
 
+                    <ul class="nav collapse {{ $isAssessmentsActive ? 'show' : 'hide' }} bg-white" id="exams-grades-submenu">
+                        @endif
                         {{-- Admin/Teacher --}}
                         @if($u && ($isAdmin || $isTeacher))
                             <li class="nav-item w-100">
@@ -302,6 +303,16 @@
                             </li>
                         @endif
 
+{{--                        --}}{{-- Parent --}}
+{{--                        @if($u && $isParent)--}}
+{{--                            <li class="nav-item w-100">--}}
+{{--                                <a class="nav-link" href="{{ $r('parent.children', url('/parent/children')) }}">--}}
+{{--                                    <i class="bi bi-file-earmark-text me-2"></i> Children Report Cards--}}
+{{--                                </a>--}}
+{{--                            </li>--}}
+{{--                        @endif--}}
+
+
                         {{-- Student --}}
                         @if($u && $isStudent)
                             <li class="nav-item w-100">
@@ -325,6 +336,7 @@
                     </ul>
                 </li>
             @endif
+
 
 
             {{-- =========================

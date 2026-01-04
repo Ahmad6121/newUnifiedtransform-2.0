@@ -9,6 +9,8 @@ use App\Models\Payroll;
 use App\Models\User;
 use App\Models\Staff;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 class FinanceDashboardController extends Controller
 {
@@ -29,69 +31,104 @@ class FinanceDashboardController extends Controller
         if (!$isAdmin && !$isAccountant) abort(403);
     }
 
-    public function index(\Illuminate\Http\Request $request)
+    private function pickDateColumn(string $table, array $candidates, string $fallback = 'created_at'): string
+    {
+        foreach ($candidates as $col) {
+            if (Schema::hasColumn($table, $col)) return $col;
+        }
+        return $fallback;
+    }
+
+    public function index(Request $request)
     {
         $this->ensureFinanceAccess();
 
-        // ✅ فلترة from/to (افتراضي آخر 30 يوم)
-        $from = $request->get('from');
-        $to   = $request->get('to');
+        // فلتر التاريخ
+        $from = $request->query('from');
+        $to   = $request->query('to');
 
-        if (!$from) $from = now()->subDays(30)->format('Y-m-d');
-        if (!$to)   $to   = now()->format('Y-m-d');
+        $fromDate = $from ? Carbon::parse($from)->startOfDay() : now()->startOfMonth()->startOfDay();
+        $toDate   = $to   ? Carbon::parse($to)->endOfDay()     : now()->endOfDay();
 
-        $fromDate = Carbon::parse($from)->startOfDay();
-        $toDate   = Carbon::parse($to)->endOfDay();
+        // =======================
+        // Income (الأفضل من payments إن وجد)
+        // =======================
+        $income = 0.0;
 
-        // ✅ Income = مجموع المدفوع من الفواتير (حسب due_date لو موجودة، وإلا created_at)
-        $incomeQuery = Invoice::query();
-        if (\Schema::hasColumn('invoices', 'due_date')) {
-            $incomeQuery->whereBetween('due_date', [$fromDate->toDateString(), $toDate->toDateString()]);
-        } else {
-            $incomeQuery->whereBetween('created_at', [$fromDate, $toDate]);
+        if (Schema::hasTable('payments')) {
+            // إذا عندك App\Models\Payment
+            $paymentModel = class_exists(\App\Models\Payment::class) ? \App\Models\Payment::class : null;
+
+            if ($paymentModel) {
+                $payDateCol = $this->pickDateColumn('payments', ['payment_date', 'paid_at', 'date', 'created_at'], 'created_at');
+                $income = (float) $paymentModel::query()
+                    ->whereBetween($payDateCol, [$fromDate, $toDate])
+                    ->sum('amount');
+            }
         }
-        $income = (float) $incomeQuery->sum('paid_amount');
 
-        // ✅ Expenses
+        // لو ما في payments أو طلع 0، اعمل fallback على invoices
+        if ($income <= 0 && Schema::hasTable('invoices')) {
+            $invDateCol = $this->pickDateColumn('invoices', ['invoice_date', 'issue_date', 'date', 'created_at'], 'created_at');
+
+            // إذا paid_amount موجود استخدمه، وإلا amount
+            $incomeCol = Schema::hasColumn('invoices', 'paid_amount') ? 'paid_amount' : 'amount';
+
+            $income = (float) Invoice::query()
+                ->whereBetween($invDateCol, [$fromDate, $toDate])
+                ->sum($incomeCol);
+        }
+
+        // =======================
+        // Expenses
+        // =======================
         $expenses = 0.0;
         $recentExpenses = collect();
-        if (class_exists(Expense::class)) {
-            $expenseQuery = Expense::query();
-            if (\Schema::hasColumn('expenses', 'expense_date')) {
-                $expenseQuery->whereBetween('expense_date', [$fromDate->toDateString(), $toDate->toDateString()]);
-            } else {
-                $expenseQuery->whereBetween('created_at', [$fromDate, $toDate]);
-            }
 
-            $expenses = (float) $expenseQuery->sum('amount');
+        if (class_exists(Expense::class) && Schema::hasTable('expenses')) {
+            $expDateCol = $this->pickDateColumn('expenses', ['expense_date', 'date', 'created_at'], 'created_at');
 
-            $recentExpenses = Expense::orderByDesc(\Schema::hasColumn('expenses', 'expense_date') ? 'expense_date' : 'id')
+            $expenses = (float) Expense::query()
+                ->whereBetween($expDateCol, [$fromDate, $toDate])
+                ->sum('amount');
+
+            $recentExpenses = Expense::query()
+                ->orderByDesc($expDateCol)
+                ->orderByDesc('id')
                 ->limit(10)
-                ->get();
+                ->get()
+                ->map(function ($e) use ($expDateCol) {
+                    $e->date_label = $e->{$expDateCol}
+                        ? Carbon::parse($e->{$expDateCol})->format('Y-m-d')
+                        : '-';
+                    return $e;
+                });
         }
 
-        // ✅ Salaries = مجموع الرواتب المدفوعة داخل from/to حسب payroll_date
-        $salaryQuery = Payroll::query();
-        if (\Schema::hasColumn('payrolls', 'payroll_date')) {
-            $salaryQuery->whereBetween('payroll_date', [$fromDate->toDateString(), $toDate->toDateString()]);
-        } else {
-            $salaryQuery->whereBetween('created_at', [$fromDate, $toDate]);
-        }
-        $salaries = (float) $salaryQuery->sum('amount');
+        // =======================
+        // Salaries (Payroll)
+        // =======================
+        $payDateCol = Schema::hasTable('payrolls')
+            ? $this->pickDateColumn('payrolls', ['payroll_date', 'date', 'created_at'], 'created_at')
+            : 'payroll_date';
 
-        $net = $income - ($expenses + $salaries);
+        $salaries = (float) Payroll::query()
+            ->whereBetween($payDateCol, [$fromDate, $toDate])
+            ->sum('amount');
 
-        // ✅ Recent Salaries (آخر 10) + تجهيز employee_name & month_label
-        $recentSalaries = Payroll::orderByDesc(\Schema::hasColumn('payrolls', 'payroll_date') ? 'payroll_date' : 'id')
+        $recentPayrolls = Payroll::query()
+            ->orderByDesc($payDateCol)
+            ->orderByDesc('id')
             ->limit(10)
             ->get();
 
+        // تجهيز أسماء الموظفين مرة وحدة
         $userIds = [];
         $staffIds = [];
 
-        foreach ($recentSalaries as $p) {
+        foreach ($recentPayrolls as $p) {
             $ref = (string)($p->employee_ref ?? '');
-            if (str_starts_with($ref, 'user|'))  $userIds[] = (int)explode('|', $ref)[1];
+            if (str_starts_with($ref, 'user|'))  $userIds[]  = (int)explode('|', $ref)[1];
             if (str_starts_with($ref, 'staff|')) $staffIds[] = (int)explode('|', $ref)[1];
         }
 
@@ -103,7 +140,7 @@ class FinanceDashboardController extends Controller
             ? Staff::whereIn('id', array_unique($staffIds))->get()->keyBy('id')
             : collect();
 
-        $recentSalaries = $recentSalaries->map(function ($p) use ($users, $staff) {
+        $recentPayrolls = $recentPayrolls->map(function ($p) use ($users, $staff, $payDateCol) {
             $ref = (string)($p->employee_ref ?? '');
             $employeeName = '-';
 
@@ -111,32 +148,35 @@ class FinanceDashboardController extends Controller
                 $id = (int)explode('|', $ref)[1];
                 $u = $users[$id] ?? null;
                 if ($u) {
-                    $employeeName = trim(($u->first_name ?? '').' '.($u->last_name ?? ''))
-                        ?: ($u->name ?? $u->email ?? ('User #'.$id));
+                    $employeeName = trim(($u->first_name ?? '') . ' ' . ($u->last_name ?? ''))
+                        ?: ($u->name ?? $u->email ?? ('User #' . $id));
                 }
-            }
-
-            if (str_starts_with($ref, 'staff|')) {
+            } elseif (str_starts_with($ref, 'staff|')) {
                 $id = (int)explode('|', $ref)[1];
                 $s = $staff[$id] ?? null;
                 if ($s) {
-                    $employeeName = trim(($s->first_name ?? '').' '.($s->last_name ?? ''))
-                        ?: ('Staff #'.$id);
+                    $employeeName = trim(($s->first_name ?? '') . ' ' . ($s->last_name ?? ''))
+                        ?: ('Staff #' . $id);
                 }
             }
 
             $p->employee_name = $employeeName;
-
-            $dateField = $p->payroll_date ?? $p->created_at ?? null;
-            $p->month_label = $dateField ? Carbon::parse($dateField)->format('Y-m') : '-';
+            $p->month_label = $p->{$payDateCol}
+                ? Carbon::parse($p->{$payDateCol})->format('M Y')
+                : '-';
 
             return $p;
         });
 
+        // =======================
+        // Net
+        // =======================
+        $net = $income - ($expenses + $salaries);
+
         return view('finance.dashboard.index', compact(
             'from', 'to',
             'income', 'expenses', 'salaries', 'net',
-            'recentExpenses', 'recentSalaries'
+            'recentExpenses', 'recentPayrolls'
         ));
     }
 }

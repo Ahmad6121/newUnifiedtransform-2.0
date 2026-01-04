@@ -94,7 +94,12 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/dashboard', [ParentDashboardController::class, 'index'])->name('dashboard');
         Route::get('/progress', [ParentDashboardController::class, 'progress'])->name('progress');
         Route::get('/children', [UserController::class, 'getMyChildren'])->name('children');
+
+        Route::get('/children/{student}/report-card', [ReportCardController::class, 'child'])
+            ->name('reportcard.child');
     });
+
+
 
     /*
     |----------------------------------------------------------------------
@@ -488,7 +493,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/student/grades', [StudentGradesController::class, 'index'])->name('student.grades.index');
     Route::get('/report-card/my', [ReportCardController::class, 'my'])->name('reportcard.my');
     Route::get('/report-card/child/{student}', [ReportCardController::class, 'child'])->name('reportcard.child');
-    Route::get('/parent/children/{student}/report-card', [ReportCardController::class, 'child'])->name('reportcard.child');
+//    Route::get('/parent/children/{student}/report-card', [ReportCardController::class, 'child'])->name('reportcard.child');
 
     // Reports & Exports page
     Route::get('/reports/exports', [ReportsPageController::class, 'exports'])->name('reports.exports');
