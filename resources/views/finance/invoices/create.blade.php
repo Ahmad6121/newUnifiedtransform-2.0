@@ -17,7 +17,12 @@
 
         <form method="POST" action="{{ route('finance.invoices.store') }}">
             @csrf
-            @include('finance.invoices._form', ['invoice' => $invoice, 'students' => $students, 'classes' => $classes])
+            @include('finance.invoices._form', [
+                'invoice'   => $invoice,
+                'students'  => $students,
+                'classes'   => $classes,
+                'sessionId' => $sessionId
+            ])
         </form>
     </div>
 @endsection

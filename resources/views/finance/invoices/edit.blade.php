@@ -18,7 +18,12 @@
         <form method="POST" action="{{ route('finance.invoices.update', $invoice) }}">
             @csrf
             @method('PUT')
-            @include('finance.invoices._form', ['invoice' => $invoice, 'students' => $students, 'classes' => $classes])
+            @include('finance.invoices._form', [
+                'invoice'   => $invoice,
+                'students'  => $students,
+                'classes'   => $classes,
+                'sessionId' => $sessionId
+            ])
         </form>
     </div>
 @endsection

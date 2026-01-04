@@ -10,12 +10,22 @@ class Invoice extends Model
     use HasFactory;
 
     protected $fillable = [
-        'student_id','class_id','session_id','title','amount','status','due_date','notes'
+        'student_id',
+        'class_id',
+        'session_id',
+        'invoice_number',
+        'title',
+        'amount',
+        'paid_amount',
+        'status',
+        'due_date',
+        'notes'
     ];
 
     protected $casts = [
-        'amount'  => 'decimal:2',
-        'due_date'=> 'date',
+        'amount'      => 'decimal:2',
+        'paid_amount' => 'decimal:2',
+        'due_date'    => 'date',
     ];
 
     public function student() { return $this->belongsTo(User::class, 'student_id'); }
@@ -23,7 +33,23 @@ class Invoice extends Model
     public function session() { return $this->belongsTo(SchoolSession::class, 'session_id'); }
     public function payments(){ return $this->hasMany(Payment::class); }
 
-    public function paidTotal(): float {
-        return (float) $this->payments()->sum('amount');
+    /**
+     * حساب المبلغ المتبقي (Balance)
+     */
+    public function getBalanceAttribute()
+    {
+        return $this->amount - $this->paid_amount;
+    }
+
+    // 🆕 أضف هذه الدالة هنا لإصلاح خطأ الزر الأخضر
+    public function paidTotal()
+    {
+        // هذه الدالة تجمع المبالغ الموجودة في جدول الدفعات
+        return $this->payments()->sum('amount');
+    }
+
+    public function isPaid()
+    {
+        return $this->status === 'paid';
     }
 }

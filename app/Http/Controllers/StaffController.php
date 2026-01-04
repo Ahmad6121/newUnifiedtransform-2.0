@@ -5,105 +5,171 @@ namespace App\Http\Controllers;
 use App\Models\Staff;
 use App\Models\JobTitle;
 use App\Models\SchoolSession;
-use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
-use Spatie\Permission\Models\Role;
+use Illuminate\Validation\Rule;
 
 class StaffController extends Controller
 {
-    public function index()
+    /**
+     * Staff page = وظائف بدون Login
+     * (عدّلها لو بدك تضيف وظائف ثانية)
+     */
+    private $nonLoginJobTitles = ['Driver', 'Cleaner'];
+
+    private function currentSessionId(): int
     {
-        $staff = Staff::with(['session', 'jobTitle'])->paginate(20);
-        return view('staff.index', compact('staff'));
-    }
-
-    public function create()
-    {
-        $session   = SchoolSession::latest()->first();
-        $jobTitles = JobTitle::all();
-        $roles     = Role::pluck('name', 'name'); // جلب أسماء الأدوار من Spatie
-
-        return view('staff.create', compact('session', 'jobTitles', 'roles'));
-    }
-
-    public function store(Request $request)
-    {
-        // ✅ تحقق من البيانات
-        $data = $request->validate([
-            'first_name'   => 'required|string|max:80',
-            'last_name'    => 'required|string|max:80',
-            'email'        => 'nullable|email|unique:users,email',
-            'phone'        => 'nullable|string|max:20',
-            'job_title_id' => 'required|exists:job_titles,id',
-            'salary_type'  => 'required|in:fixed,hourly',
-            'base_salary'  => 'required|numeric|min:0',
-            'join_date'    => 'nullable|date',
-            'status'       => 'required|in:active,inactive',
-            'role'         => 'nullable|exists:roles,name',
-        ]);
-
-        $data['session_id'] = SchoolSession::latest()->value('id');
-
-        // 🧑‍💼 إنشاء سجل Staff
-        $staff = Staff::create($data);
-
-        // 🧑‍💻 إنشاء حساب مستخدم إذا كان هناك Role محدد
-        // إنشاء حساب مستخدم إذا تم اختيار Role
-        if ($request->filled('role') && $request->filled('email')) {
-            $user = User::create([
-                'first_name'  => $data['first_name'],
-                'last_name'   => $data['last_name'],
-                'email'       => $data['email'],
-                'phone'       => $data['phone'] ?? null,
-                'role'        => $request->role,
-                'password'    => Hash::make('password123'),
-                'gender'      => 'male',           // ✅ قيمة افتراضية
-                'nationality' => 'Jordanian',      // ✅ قيمة افتراضية
-                'address'     => 'Main Street',
-                'address2'    => 'N/A',
-                'city'        => 'Amman',
-                'zip'         => '11118',
-            ]);
-
-            $user->assignRole($request->role);
-            $staff->update(['user_id' => $user->id]);
+        if (session()->has('browse_session_id')) {
+            return (int) session('browse_session_id');
         }
 
-
-        return redirect()
-            ->route('staff.index')
-            ->with('status', '✅ Staff member added successfully');
+        $latest = SchoolSession::latest()->first();
+        return $latest ? (int) $latest->id : 1;
     }
 
-    public function edit(Staff $staff)
+    /**
+     * GET /staff
+     * Route name: staff.employees.index
+     */
+    public function index(Request $request)
     {
-        $jobTitles = JobTitle::all();
-        $roles = Role::pluck('name', 'name');
-        return view('staff.edit', compact('staff', 'jobTitles', 'roles'));
+        $q = trim((string) $request->get('search', ''));
+
+        $query = Staff::with('jobTitle')->orderByDesc('id');
+
+        if ($q !== '') {
+            $query->where(function ($w) use ($q) {
+                $w->where('first_name', 'like', "%{$q}%")
+                    ->orWhere('last_name', 'like', "%{$q}%")
+                    ->orWhere('email', 'like', "%{$q}%")
+                    ->orWhere('phone', 'like', "%{$q}%");
+            });
+        }
+
+        // ✅ paginate (عشان links() تشتغل)
+        $staff = $query->paginate(10)->withQueryString();
+
+        return view('staff.employees.index', compact('staff'));
     }
 
-    public function update(Request $request, Staff $staff)
+    /**
+     * GET /staff/create
+     * Route name: staff.employees.create
+     */
+    public function create()
     {
-        $data = $request->validate([
-            'job_title_id' => 'required|exists:job_titles,id',
-            'salary_type'  => 'required|in:fixed,hourly',
-            'base_salary'  => 'required|numeric|min:0',
-            'join_date'    => 'nullable|date',
-            'status'       => 'required|in:active,inactive',
+        // فقط الوظائف اللي بدون Login
+        $jobTitles = JobTitle::whereIn('name', $this->nonLoginJobTitles)
+            ->orderBy('name')
+            ->get();
+
+        return view('staff.employees.create', compact('jobTitles'));
+    }
+
+    /**
+     * POST /staff
+     * Route name: staff.employees.store
+     */
+    public function store(Request $request)
+    {
+        $allowedIds = JobTitle::whereIn('name', $this->nonLoginJobTitles)->pluck('id')->toArray();
+
+        $request->validate([
+            'first_name'   => ['required','string','max:255'],
+            'last_name'    => ['required','string','max:255'],
+            'email'        => ['nullable','email','max:255'],
+            'phone'        => ['nullable','string','max:255'],
+
+            // ✅ خليها required حتى ما يضل فاضي
+            'job_title_id' => ['required', Rule::in($allowedIds)],
+
+            'salary_type'  => ['required', Rule::in(['fixed','hourly'])],
+            'base_salary'  => ['required','numeric','min:0'],
+            'join_date'    => ['nullable','date'],
+            'status'       => ['required', Rule::in(['active','inactive'])],
+        ], [
+            'job_title_id.in' => 'Staff page is only for Driver/Cleaner. Accountants must be added from Accountants page.',
         ]);
 
-        $staff->update($data);
+        Staff::create([
+            'first_name'   => $request->first_name,
+            'last_name'    => $request->last_name,
+            'email'        => $request->email,
+            'phone'        => $request->phone,
+            'salary_type'  => $request->salary_type,
+            'base_salary'  => $request->base_salary,
+            'join_date'    => $request->join_date,
+            'status'       => $request->status,
+            'session_id'   => $this->currentSessionId(),
+            'job_title_id' => $request->job_title_id,
+            'user_id'      => null, // ✅ بدون Login
+        ]);
 
-        return redirect()
-            ->route('staff.index')
-            ->with('status', '✅ Staff updated successfully');
+        return redirect()->route('staff.employees.index')
+            ->with('success', 'Staff created successfully.');
     }
 
-    public function destroy(Staff $staff)
+    /**
+     * GET /staff/{employee}/edit
+     * Route name: staff.employees.edit
+     */
+    public function edit(Staff $employee)
     {
-        $staff->delete();
-        return back()->with('status', '🗑 Staff deleted');
+        $jobTitles = JobTitle::whereIn('name', $this->nonLoginJobTitles)
+            ->orderBy('name')
+            ->get();
+
+        return view('staff.employees.edit', [
+            'employee'  => $employee,
+            'jobTitles' => $jobTitles,
+        ]);
+    }
+
+    /**
+     * PUT /staff/{employee}
+     * Route name: staff.employees.update
+     */
+    public function update(Request $request, Staff $employee)
+    {
+        $allowedIds = JobTitle::whereIn('name', $this->nonLoginJobTitles)->pluck('id')->toArray();
+
+        $request->validate([
+            'first_name'   => ['required','string','max:255'],
+            'last_name'    => ['required','string','max:255'],
+            'email'        => ['nullable','email','max:255'],
+            'phone'        => ['nullable','string','max:255'],
+            'job_title_id' => ['required', Rule::in($allowedIds)],
+
+            'salary_type'  => ['required', Rule::in(['fixed','hourly'])],
+            'base_salary'  => ['required','numeric','min:0'],
+            'join_date'    => ['nullable','date'],
+            'status'       => ['required', Rule::in(['active','inactive'])],
+        ]);
+
+        $employee->update([
+            'first_name'   => $request->first_name,
+            'last_name'    => $request->last_name,
+            'email'        => $request->email,
+            'phone'        => $request->phone,
+            'job_title_id' => $request->job_title_id,
+            'salary_type'  => $request->salary_type,
+            'base_salary'  => $request->base_salary,
+            'join_date'    => $request->join_date,
+            'status'       => $request->status,
+        ]);
+
+        return redirect()->route('staff.employees.index')
+            ->with('success', 'Staff updated successfully.');
+    }
+
+    /**
+     * DELETE /staff/{employee}
+     * Route name: staff.employees.destroy
+     */
+    public function destroy(Staff $employee)
+    {
+        $employee->delete();
+
+        return redirect()->route('staff.employees.index')
+            ->with('success', 'Staff deleted successfully.');
     }
 }

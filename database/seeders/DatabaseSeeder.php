@@ -25,10 +25,10 @@ class DatabaseSeeder extends Seeder
             // باقي الـ seeders الثانوية
             BookSeeder::class,
             BookIssueSeeder::class,
-            InvoiceSeeder::class,
-            PaymentSeeder::class,
+//            InvoiceSeeder::class,
+//            PaymentSeeder::class,
             JobTitleSeeder::class,
-            StaffSeeder::class,
+//            StaffSeeder::class,
             StudentParentInfoSeeder::class,
             StudentAcademicInfoSeeder::class,
             AcademicSettingSeeder::class,

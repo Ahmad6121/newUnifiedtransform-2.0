@@ -8,12 +8,15 @@ return new class extends Migration {
     public function up(): void {
         Schema::create('invoices', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('student_id');        // users.id (role=student)
-            $table->unsignedBigInteger('class_id')->nullable();   // school_classes.id
-            $table->unsignedBigInteger('session_id');        // school_sessions.id
+            // وضعنا رقم الفاتورة هنا مباشرة بعد الـ id بدون كلمة after
+            $table->string('invoice_number')->unique();
+            $table->unsignedBigInteger('student_id');
+            $table->unsignedBigInteger('class_id')->nullable();
+            $table->unsignedBigInteger('session_id');
 
             $table->string('title')->default('Tuition Fee');
             $table->decimal('amount', 10, 2);
+            $table->decimal('paid_amount', 10, 2)->default(0);
             $table->enum('status', ['unpaid','partial','paid','overdue'])->default('unpaid');
             $table->date('due_date')->nullable();
             $table->text('notes')->nullable();
@@ -26,6 +29,7 @@ return new class extends Migration {
             $table->index(['student_id','session_id']);
         });
     }
+
     public function down(): void {
         Schema::dropIfExists('invoices');
     }

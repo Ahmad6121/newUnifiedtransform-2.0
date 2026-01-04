@@ -2,62 +2,99 @@
 
 @section('content')
     <div class="container">
-        <h3>Edit Book</h3>
+        <div class="row justify-content-start">
+            @include('layouts.left-menu')
 
-        @if($errors->any())
-            <div class="alert alert-danger">
-                <ul class="mb-0">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul>
+            <div class="col-xs-11 col-sm-11 col-md-11 col-lg-10 col-xl-10 col-xxl-10">
+                <div class="row pt-2">
+                    <div class="col ps-4">
+
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <h1 class="display-6 mb-0">
+                                <i class="bi bi-pencil"></i> Edit Book
+                            </h1>
+                            <a href="{{ route('library.books.index') }}" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-arrow-left"></i> Back
+                            </a>
+                        </div>
+
+                        @if ($errors->any())
+                            <div class="alert alert-danger">
+                                <ul class="mb-0">
+                                    @foreach ($errors->all() as $e) <li>{{ $e }}</li> @endforeach
+                                </ul>
+                            </div>
+                        @endif
+
+                        <div class="p-3 bg-white border shadow-sm">
+                            <form method="POST" action="{{ route('library.books.update', $book->id) }}">
+                                @csrf
+                                @method('PUT')
+
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Title</label>
+                                        <input type="text" name="title" value="{{ old('title', $book->title) }}"
+                                               class="form-control @error('title') is-invalid @enderror" required>
+                                        @error('title') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label">Author (optional)</label>
+                                        <input type="text" name="author" value="{{ old('author', $book->author) }}"
+                                               class="form-control @error('author') is-invalid @enderror">
+                                        @error('author') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label">ISBN (optional)</label>
+                                        <input type="text" name="isbn" value="{{ old('isbn', $book->isbn) }}"
+                                               class="form-control @error('isbn') is-invalid @enderror">
+                                        @error('isbn') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                    </div>
+
+                                    <div class="col-md-3">
+                                        <label class="form-label">Quantity</label>
+                                        <input type="number" min="0" name="quantity" value="{{ old('quantity', $book->quantity) }}"
+                                               class="form-control @error('quantity') is-invalid @enderror" required>
+                                        @error('quantity') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                    </div>
+
+                                    <div class="col-md-3">
+                                        <label class="form-label">Published Year (optional)</label>
+                                        <input type="number" min="0" max="2100" name="published_year"
+                                               value="{{ old('published_year', $book->published_year) }}"
+                                               class="form-control @error('published_year') is-invalid @enderror">
+                                        @error('published_year') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label">Publisher (optional)</label>
+                                        <input type="text" name="publisher" value="{{ old('publisher', $book->publisher) }}"
+                                               class="form-control @error('publisher') is-invalid @enderror">
+                                        @error('publisher') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label">Shelf (optional)</label>
+                                        <input type="text" name="shelf" value="{{ old('shelf', $book->shelf) }}"
+                                               class="form-control @error('shelf') is-invalid @enderror">
+                                        @error('shelf') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                    </div>
+                                </div>
+
+                                <div class="mt-3">
+                                    <button class="btn btn-primary" type="submit">
+                                        <i class="bi bi-check2-circle"></i> Update
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                    </div>
+                </div>
+                @include('layouts.footer')
             </div>
-        @endif
-
-        <form method="POST" action="{{ route('library.books.update', $book) }}" class="row g-3">
-            @csrf
-            @method('PUT')
-
-            <div class="col-md-6">
-                <label class="form-label">Title *</label>
-                <input name="title" class="form-control" required value="{{ old('title', $book->title) }}">
-            </div>
-
-            <div class="col-md-6">
-                <label class="form-label">Author</label>
-                <input name="author" class="form-control" value="{{ old('author', $book->author) }}">
-            </div>
-
-            <div class="col-md-4">
-                <label class="form-label">ISBN</label>
-                <input name="isbn" class="form-control" value="{{ old('isbn', $book->isbn) }}">
-            </div>
-
-            <div class="col-md-4">
-                <label class="form-label">Quantity *</label>
-                <input type="number" min="0" name="quantity" class="form-control" required value="{{ old('quantity', $book->quantity) }}">
-            </div>
-
-            <div class="col-md-4">
-                <label class="form-label">Available</label>
-                <input type="number" min="0" name="available_quantity" class="form-control" value="{{ old('available_quantity', $book->available_quantity) }}">
-            </div>
-
-            <div class="col-md-4">
-                <label class="form-label">Shelf</label>
-                <input name="shelf" class="form-control" value="{{ old('shelf', $book->shelf) }}">
-            </div>
-
-            <div class="col-md-4">
-                <label class="form-label">Publisher</label>
-                <input name="publisher" class="form-control" value="{{ old('publisher', $book->publisher) }}">
-            </div>
-
-            <div class="col-md-4">
-                <label class="form-label">Year</label>
-                <input type="number" name="published_year" class="form-control" value="{{ old('published_year', $book->published_year) }}">
-            </div>
-
-            <div class="col-12">
-                <button class="btn btn-success">Update</button>
-                <a href="{{ route('library.books.index') }}" class="btn btn-secondary">Cancel</a>
-            </div>
-        </form>
+        </div>
     </div>
 @endsection

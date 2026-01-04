@@ -6,6 +6,7 @@ use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
+use App\Models\User; // ✅ NEW
 
 class PermissionSeeder extends Seeder
 {
@@ -63,10 +64,14 @@ class PermissionSeeder extends Seeder
         // 3️⃣ إنشاء الأدوار وربط الصلاحيات
         $roles = [
             'admin' => Permission::all()->pluck('name')->toArray(),
-            'accountant' => ['create invoices', 'view invoices', 'edit invoices', 'delete invoices',
-                'record payments', 'view payments', 'view students', 'view users'],
-            'librarian' => ['create books', 'view books', 'edit books', 'delete books',
-                'issue books', 'return books', 'view issued books', 'view students'],
+            'accountant' => [
+                'create invoices', 'view invoices', 'edit invoices', 'delete invoices',
+                'record payments', 'view payments', 'view students', 'view users'
+            ],
+            'librarian' => [
+                'create books', 'view books', 'edit books', 'delete books',
+                'issue books', 'return books', 'view issued books', 'view students'
+            ],
             'teacher' => [
                 'view students',       // يستطيع رؤية طلاب صفوفه
                 'take attendances', 'view attendances',
@@ -75,10 +80,8 @@ class PermissionSeeder extends Seeder
                 'save marks', 'view marks',
                 'view classes', 'view courses', 'view routines', 'view syllabi'
             ],
-
-
             'student' => ['view marks', 'submit assignments', 'view routines', 'view syllabi'],
-            'parent' => ['view marks', 'view routines', 'view notices'],
+            'parent'  => ['view marks', 'view routines', 'view notices'],
         ];
 
         foreach ($roles as $roleName => $rolePermissions) {
@@ -89,6 +92,34 @@ class PermissionSeeder extends Seeder
             $role->syncPermissions($rolePermissions);
         }
 
+        // 4️⃣ ✅ NEW: ربط المستخدمين الموجودين حسب عمود users.role مع Spatie Roles
+        // حتى يطلع "accountant" وغيره داخل صفحة Manage User Permissions بدل "لا يوجد"
+        User::query()
+            ->whereNotNull('role')
+            ->where('role', '!=', '')
+            ->chunkById(200, function ($users) {
+                foreach ($users as $u) {
+                    $roleName = strtolower(trim((string) $u->role));
+
+                    if ($roleName === '') {
+                        continue;
+                    }
+
+                    // تأكد أن الرول موجود
+                    $role = Role::where('name', $roleName)->where('guard_name', 'web')->first();
+                    if (!$role) {
+                        $role = Role::firstOrCreate(['name' => $roleName, 'guard_name' => 'web']);
+                    }
+
+                    // Sync role للمستخدم (يخلي صفحة permissions تعرضه)
+                    $u->syncRoles([$roleName]);
+                }
+            });
+
+        // إعادة تعيين الكاش مرة ثانية بعد كل شيء
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
+
         $this->command->info('✅ PermissionSeeder: تم إنشاء كل الصلاحيات والأدوار وربطها بنجاح.');
+        $this->command->info('✅ PermissionSeeder: تم ربط Roles للمستخدمين حسب users.role بنجاح (SyncRoles).');
     }
 }

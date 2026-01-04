@@ -248,17 +248,16 @@ class UserController extends Controller
     {
         $user = auth()->user();
 
-        // 👨‍👩‍👧‍👦 لو المستخدم Parent → يشوف فقط المعلمين اللي بيدرّسوا أولاده
-        if ($user->hasRole('parent')) {
+        $current_school_session_id = $this->getSchoolCurrentSession();
 
-            $current_school_session_id = $this->getSchoolCurrentSession();
+        // 👨‍👩‍👧‍👦 Parent → يشوف فقط المعلمين اللي بيدرّسوا أولاده
+        if ($user->hasRole('parent')) {
 
             // IDs أبناء هذا الأب من جدول student_parent_infos
             $childrenIds = StudentParentInfo::where('parent_user_id', $user->id)
                 ->pluck('student_id')
                 ->toArray();
 
-            // لو ما عنده أبناء مربوطين → يرجع قائمة فاضية
             if (empty($childrenIds)) {
                 $teachers = collect();
             } else {
@@ -280,20 +279,43 @@ class UserController extends Controller
                         ->whereIn('section_id', $sectionIds)
                         ->get();
 
-                    // نستخرج الـ teachers فقط مع إزالة التكرار
                     $teachers = $assigned->pluck('teacher')
                         ->filter()
                         ->unique('id')
                         ->values();
                 }
             }
-
         }
-        // 👨‍🏫 لو Teacher → خلّيه يشوف باقي المعلمين عادي (أو ممكن نفلتر لاحقاً لو حاب)
+
+        // ✅ Student → يشوف فقط المعلمين اللي بيدرّسوه (حسب promotion تبعه)
+        elseif ($user->hasRole('student')) {
+
+            $promotion = Promotion::where('session_id', $current_school_session_id)
+                ->where('student_id', $user->id)
+                ->first();
+
+            if (!$promotion) {
+                $teachers = collect(); // ما في promotion يعني ما بنعرف صفه/شعبته
+            } else {
+                $assigned = AssignedTeacher::with('teacher')
+                    ->where('session_id', $current_school_session_id)
+                    ->where('class_id', $promotion->class_id)
+                    ->where('section_id', $promotion->section_id)
+                    ->get();
+
+                $teachers = $assigned->pluck('teacher')
+                    ->filter()
+                    ->unique('id')
+                    ->values();
+            }
+        }
+
+        // 👨‍🏫 Teacher → يشوف كل المعلمين (أو خليها زي ما بدك)
         elseif ($user->hasRole('teacher')) {
             $teachers = $this->userRepository->getAllTeachers();
         }
-        // 🧑‍💼 لو Admin أو أي دور آخر معه صلاحيات → يشوف كل المعلمين
+
+        // 🧑‍💼 Admin أو أي دور آخر → يشوف كل المعلمين
         else {
             $teachers = $this->userRepository->getAllTeachers();
         }
