@@ -22,7 +22,9 @@ class MessagingController extends Controller
         $user = $r->user();
 
         $convs = Conversation::query()
-            ->when(!($user->isAdmin() || $user->isFinance()), function ($q) use ($user) {
+            // ✅ فقط الأدمن يشوف كل المحادثات
+            // ✅ المحاسب (finance) + باقي الأدوار يشوفوا فقط اللي هم مشاركين فيها
+            ->when(!$user->isAdmin(), function ($q) use ($user) {
                 $q->whereHas('participants', function ($qq) use ($user) {
                     $qq->where('user_id', $user->id);
                 });
@@ -33,20 +35,26 @@ class MessagingController extends Controller
             ->get()
             ->map(function ($c) use ($user) {
 
-                // unread for user (only meaningful if user is participant)
+                // unread: meaningful only if user is participant
                 $lastReadAt = null;
                 $meUser = $c->users->firstWhere('id', $user->id);
+
                 if ($meUser && $meUser->pivot) {
                     $lastReadAt = $meUser->pivot->last_read_at;
                 }
 
-                $unreadQuery = Message::where('conversation_id', $c->id)
-                    ->where('sender_id', '!=', $user->id);
+                // ✅ لا نحسب unread إلا لو المستخدم مشارك بالمحادثة (أو الأدمن مشارك)
+                $unread = 0;
+                if ($meUser && $meUser->pivot) {
+                    $unreadQuery = Message::where('conversation_id', $c->id)
+                        ->where('sender_id', '!=', $user->id);
 
-                if ($lastReadAt) {
-                    $unreadQuery->where('created_at', '>', $lastReadAt);
+                    if ($lastReadAt) {
+                        $unreadQuery->where('created_at', '>', $lastReadAt);
+                    }
+
+                    $unread = $unreadQuery->count();
                 }
-                $unread = ($meUser || $user->isAdmin() || $user->isFinance()) ? $unreadQuery->count() : 0;
 
                 $otherUsers = $c->users->where('id', '!=', $user->id)->values();
                 $otherNames = $otherUsers->map(function ($u) {
@@ -179,6 +187,14 @@ class MessagingController extends Controller
             'body' => 'required|string|max:4000',
         ]);
 
+        // ✅ لو الأدمن يبعت على محادثة وهو مش Participant (مراقبة)، نخليه ينضم تلقائي
+        if ($user->isAdmin()) {
+            ConversationParticipant::firstOrCreate(
+                ['conversation_id' => $conversationId, 'user_id' => $user->id],
+                ['is_admin_observer' => true, 'last_read_at' => now()]
+            );
+        }
+
         $msg = Message::create([
             'conversation_id' => $conversationId,
             'sender_id' => $user->id,
@@ -252,9 +268,10 @@ class MessagingController extends Controller
 
     private function ensureCanAccess($user, $conversationId)
     {
-        // حسب طلبك: admin + finance يشوفوا الكل
-        if ($user->isAdmin() || $user->isFinance()) return true;
+        // ✅ فقط الأدمن يشوف/يدخل أي محادثة
+        if ($user->isAdmin()) return true;
 
+        // ✅ المحاسب (finance) لازم يكون participant عشان يدخل
         $exists = ConversationParticipant::where('conversation_id', $conversationId)
             ->where('user_id', $user->id)
             ->exists();
@@ -265,7 +282,7 @@ class MessagingController extends Controller
 
     private function canStartChat($a, $b): bool
     {
-        // finance مع الجميع
+        // finance مع الجميع (مسموح يبدأ محادثة، لكن لن يرى إلا محادثاته لأنه participant فيها)
         if ($a->isFinance() || $b->isFinance()) return true;
 
         // admin مع الجميع
