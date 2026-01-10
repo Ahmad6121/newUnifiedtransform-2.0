@@ -37,6 +37,7 @@ services:
 
   #MySQL Service
   db:
+
     image: mysql:5.7.22
     container_name: db
     restart: unless-stopped
@@ -55,6 +56,21 @@ services:
       - ./mysql/my.cnf:/etc/mysql/my.cnf
     networks:
       - app-network
+
+
+  phpmyadmin:
+      image: phpmyadmin/phpmyadmin
+      container_name: phpmyadmin
+      restart: unless-stopped
+      ports:
+          - "8081:80"
+      environment:
+          PMA_HOST: db
+          PMA_PORT: 3306
+          PMA_USER: root
+          PMA_PASSWORD: your_mysql_root_password
+      networks:
+          - app-network
 
 #Docker Networks
 networks:

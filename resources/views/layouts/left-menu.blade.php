@@ -102,6 +102,14 @@
                             <span class="ms-1 d-inline d-sm-none d-md-none d-xl-inline">My Children</span>
                         </a>
                     </li>
+
+
+                            <li class="nav-item w-100" style="{{ request()->routeIs('teacher.list.show') ? 'font-weight:bold;' : '' }}">
+                                <a class="nav-link" href="{{ $teachersListUrl }}">
+                                    <i class="bi bi-person-video2 me-2"></i> View Teachers
+                                </a>
+                            </li>
+
                 @else
 
                     {{-- Students submenu --}}

@@ -118,12 +118,7 @@
                             </div>
                         </div>
 
-                        <div class="alert alert-info">
-                            <i class="bi bi-info-circle"></i>
-                            To view report cards for your children, go to
-                            <strong>Exams & Grades</strong> → <strong>Children Report Cards</strong>
-                            أو من <strong>My Children</strong>.
-                        </div>
+
 
                     </div>
                 </div>
