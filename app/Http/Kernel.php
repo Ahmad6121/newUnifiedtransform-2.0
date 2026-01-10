@@ -70,5 +70,11 @@ class Kernel extends HttpKernel
 
         'finance.access' => \App\Http\Middleware\FinanceAccess::class,
 
+
+        'finance.only' => \App\Http\Middleware\FinanceOnly::class,
+
+        'my.salary' => \App\Http\Middleware\MySalaryAccess::class,
+
+
     ];
 }

@@ -347,6 +347,11 @@ Route::middleware(['auth'])->group(function () {
             // ✅ Payments store
             Route::post('invoices/{invoice}/payments', [PaymentController::class, 'store'])
                 ->name('invoices.payments.store');
+
+            // ✅ Teacher salary ONLY (بدون ما يدخل على invoices)
+            Route::get('my-salary', [\App\Http\Controllers\Finance\MySalaryController::class, 'index'])
+                ->name('teacher.salary')
+                ->middleware('my.salary');
         });
 
     /*

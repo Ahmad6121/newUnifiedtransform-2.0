@@ -8,6 +8,7 @@ use App\Models\Message;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class MessagingController extends Controller
 {
@@ -16,15 +17,16 @@ class MessagingController extends Controller
         return view('messages.index');
     }
 
-    // قائمة المحادثات
+    // ======================
+    // Conversations List
+    // ======================
     public function conversations(Request $r)
     {
         $user = $r->user();
 
         $convs = Conversation::query()
-            // ✅ فقط الأدمن يشوف كل المحادثات
-            // ✅ المحاسب (finance) + باقي الأدوار يشوفوا فقط اللي هم مشاركين فيها
-            ->when(!$user->isAdmin(), function ($q) use ($user) {
+            // ✅ Admin الحقيقي فقط يشوف كل المحادثات
+            ->when(!$this->isRealAdmin($user), function ($q) use ($user) {
                 $q->whereHas('participants', function ($qq) use ($user) {
                     $qq->where('user_id', $user->id);
                 });
@@ -43,7 +45,6 @@ class MessagingController extends Controller
                     $lastReadAt = $meUser->pivot->last_read_at;
                 }
 
-                // ✅ لا نحسب unread إلا لو المستخدم مشارك بالمحادثة (أو الأدمن مشارك)
                 $unread = 0;
                 if ($meUser && $meUser->pivot) {
                     $unreadQuery = Message::where('conversation_id', $c->id)
@@ -79,11 +80,13 @@ class MessagingController extends Controller
         return response()->json($convs);
     }
 
-    // رسائل محادثة
+    // ======================
+    // Messages of a Conversation
+    // ======================
     public function messages(Request $r, $conversationId)
     {
         $user = $r->user();
-        $this->ensureCanAccess($user, $conversationId);
+        $this->ensureCanAccess($user, (int)$conversationId);
 
         $msgs = Message::where('conversation_id', $conversationId)
             ->with('sender:id,first_name,last_name,email')
@@ -119,7 +122,9 @@ class MessagingController extends Controller
         return response()->json($msgs);
     }
 
-    // بدء محادثة 1-1
+    // ======================
+    // Start 1-1 Conversation
+    // ======================
     public function start(Request $r)
     {
         $user = $r->user();
@@ -177,18 +182,25 @@ class MessagingController extends Controller
         return response()->json(['conversation_id' => $convId]);
     }
 
-    // إرسال رسالة
+    // ======================
+    // Send a Message
+    // ======================
     public function send(Request $r, $conversationId)
     {
         $user = $r->user();
+        $conversationId = (int)$conversationId;
+
         $this->ensureCanAccess($user, $conversationId);
+
+        // ✅ يمنع الإرسال داخل محادثات قديمة "غلط" حسب قواعدك الجديدة
+        $this->ensureCanSendInConversation($user, $conversationId);
 
         $r->validate([
             'body' => 'required|string|max:4000',
         ]);
 
-        // ✅ لو الأدمن يبعت على محادثة وهو مش Participant (مراقبة)، نخليه ينضم تلقائي
-        if ($user->isAdmin()) {
+        // ✅ Admin الحقيقي لو يبعت وهو مش Participant (مراقبة)، ينضم تلقائي
+        if ($this->isRealAdmin($user)) {
             ConversationParticipant::firstOrCreate(
                 ['conversation_id' => $conversationId, 'user_id' => $user->id],
                 ['is_admin_observer' => true, 'last_read_at' => now()]
@@ -212,11 +224,13 @@ class MessagingController extends Controller
         ]);
     }
 
-    // Admin مراقبة/دخول (اختياري)
+    // ======================
+    // Admin Join (Optional)
+    // ======================
     public function adminJoin(Request $r, $conversationId)
     {
         $user = $r->user();
-        if (!$user->isAdmin()) return response()->json(['message' => 'Forbidden'], 403);
+        if (!$this->isRealAdmin($user)) return response()->json(['message' => 'Forbidden'], 403);
 
         ConversationParticipant::firstOrCreate(
             ['conversation_id' => $conversationId, 'user_id' => $user->id],
@@ -226,7 +240,9 @@ class MessagingController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    // بحث مستخدمين لبدء محادثة
+    // ======================
+    // User Search for new chats
+    // ======================
     public function userSearch(Request $r)
     {
         $me = $r->user();
@@ -241,9 +257,10 @@ class MessagingController extends Controller
                         ->orWhere('email', 'like', "%$q%");
                 });
             })
-            ->limit(30)
+            ->limit(50)
             ->get(['id','first_name','last_name','email','role']);
 
+        // ✅ فلترة حسب قواعد السماح
         $users = $users->filter(function ($u) use ($me) {
             return $this->canStartChat($me, $u);
         })->values()->map(function ($u) {
@@ -255,7 +272,7 @@ class MessagingController extends Controller
             return [
                 'id' => $u->id,
                 'name' => $name,
-                'role_slug' => $u->primaryRoleName(),
+                'role_slug' => method_exists($u, 'primaryRoleName') ? $u->primaryRoleName() : ($u->role ?? ''),
             ];
         });
 
@@ -263,15 +280,14 @@ class MessagingController extends Controller
     }
 
     // ======================
-    // Helpers
+    // Access control
     // ======================
-
-    private function ensureCanAccess($user, $conversationId)
+    private function ensureCanAccess($user, int $conversationId)
     {
-        // ✅ فقط الأدمن يشوف/يدخل أي محادثة
-        if ($user->isAdmin()) return true;
+        // ✅ Admin الحقيقي يشوف/يدخل أي محادثة
+        if ($this->isRealAdmin($user)) return true;
 
-        // ✅ المحاسب (finance) لازم يكون participant عشان يدخل
+        // ✅ غير الأدمن لازم يكون Participant
         $exists = ConversationParticipant::where('conversation_id', $conversationId)
             ->where('user_id', $user->id)
             ->exists();
@@ -280,33 +296,231 @@ class MessagingController extends Controller
         return true;
     }
 
+    private function ensureCanSendInConversation($user, int $conversationId): void
+    {
+        // admin الحقيقي مسموح
+        if ($this->isRealAdmin($user)) return;
+
+        $participantIds = ConversationParticipant::where('conversation_id', $conversationId)
+            ->pluck('user_id')
+            ->all();
+
+        $others = User::whereIn('id', $participantIds)
+            ->where('id', '!=', $user->id)
+            ->get(['id','role','first_name','last_name','email']);
+
+        foreach ($others as $o) {
+            if (!$this->canStartChat($user, $o)) {
+                abort(403, 'Not allowed to message this user');
+            }
+        }
+    }
+
+    // ======================
+    // Role helpers
+    // ======================
+    private function isRealAdmin($u): bool
+    {
+        // Admin = admin/super admin فقط، ومش finance
+        if (method_exists($u, 'isFinance') && $u->isFinance()) return false;
+
+        // لو عندك Spatie roles
+        if (method_exists($u, 'hasRole')) {
+            return $u->hasRole('Admin') || $u->hasRole('Super Admin');
+        }
+
+        // fallback على دالتك الحالية
+        return method_exists($u, 'isAdmin') ? (bool)$u->isAdmin() : false;
+    }
+
+    // ======================
+    // Chat permission logic (YOUR RULES)
+    // ======================
     private function canStartChat($a, $b): bool
     {
-        // finance مع الجميع (مسموح يبدأ محادثة، لكن لن يرى إلا محادثاته لأنه participant فيها)
-        if ($a->isFinance() || $b->isFinance()) return true;
+        if ($a->id === $b->id) return false;
 
-        // admin مع الجميع
-        if ($a->isAdmin() || $b->isAdmin()) return true;
+        // Admin مع الجميع
+        if ($this->isRealAdmin($a) || $this->isRealAdmin($b)) return true;
 
-        // teacher مع: student/parent/teacher
-        if ($a->isTeacher() && ($b->isStudent() || $b->isParentRole() || $b->isTeacher())) return true;
-        if ($b->isTeacher() && ($a->isStudent() || $a->isParentRole() || $a->isTeacher())) return true;
+        // ===== Finance rules =====
+        // Finance فقط مع: Admin/Teacher/Parent (ممنوع Student)
+        if ($a->isFinance()) {
+            return $b->isTeacher() || $b->isParentRole() || $this->isRealAdmin($b);
+        }
+        if ($b->isFinance()) {
+            return $a->isTeacher() || $a->isParentRole() || $this->isRealAdmin($a);
+        }
 
-        // parent مع teacher
-        if ($a->isParentRole() && $b->isTeacher()) return true;
-        if ($b->isParentRole() && $a->isTeacher()) return true;
+        // ===== Teacher rules =====
+        if ($a->isTeacher()) {
+            if ($b->isTeacher()) return true;
+            if ($b->isStudent()) return $this->teacherTeachesStudent((int)$a->id, (int)$b->id);
+            if ($b->isParentRole()) return $this->teacherCanChatParent((int)$a->id, (int)$b->id);
+            return false;
+        }
+        if ($b->isTeacher()) {
+            if ($a->isTeacher()) return true;
+            if ($a->isStudent()) return $this->teacherTeachesStudent((int)$b->id, (int)$a->id);
+            if ($a->isParentRole()) return $this->teacherCanChatParent((int)$b->id, (int)$a->id);
+            return false;
+        }
 
-        // student مع teacher
-        if ($a->isStudent() && $b->isTeacher()) return true;
-        if ($b->isStudent() && $a->isTeacher()) return true;
+        // ===== Parent rules =====
+        if ($a->isParentRole()) {
+            if ($b->isTeacher()) return $this->parentCanChatTeacher((int)$a->id, (int)$b->id);
+            return false;
+        }
+        if ($b->isParentRole()) {
+            if ($a->isTeacher()) return $this->parentCanChatTeacher((int)$b->id, (int)$a->id);
+            return false;
+        }
+
+        // ===== Student rules =====
+        if ($a->isStudent()) {
+            if ($b->isStudent()) return $this->sameClassForStudents((int)$a->id, (int)$b->id);
+            return false;
+        }
+        if ($b->isStudent()) {
+            if ($a->isStudent()) return $this->sameClassForStudents((int)$a->id, (int)$b->id);
+            return false;
+        }
 
         return false;
     }
 
+    // ======================
+    // Relationship helpers (DB-based)
+    // ======================
+    private function parentChildStudentIds(int $parentUserId): array
+    {
+        return DB::table('student_parent_infos')
+            ->where('parent_user_id', $parentUserId)
+            ->pluck('student_id')
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    private function studentPlacement(int $studentId): ?object
+    {
+        // الأفضل promotions إذا موجودة
+        if (Schema::hasTable('promotions')) {
+            $row = DB::table('promotions')
+                ->where('student_id', $studentId)
+                ->orderByDesc('id')
+                ->first(['class_id','section_id','session_id']);
+            if ($row) return $row;
+        }
+
+        // fallback: آخر attendance
+        $row = DB::table('attendances')
+            ->where('student_id', $studentId)
+            ->orderByDesc('id')
+            ->first(['class_id','section_id','session_id']);
+
+        return $row ?: null;
+    }
+
+    private function teacherAssignments(int $teacherId): array
+    {
+        return DB::table('assigned_teachers')
+            ->where('teacher_id', $teacherId)
+            ->get(['class_id','section_id','session_id'])
+            ->map(function ($r) {
+                return "{$r->session_id}|{$r->class_id}|{$r->section_id}";
+            })
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function teacherTeachesStudent(int $teacherId, int $studentId): bool
+    {
+        $p = $this->studentPlacement($studentId);
+        if (!$p) return false;
+
+        $key = "{$p->session_id}|{$p->class_id}|{$p->section_id}";
+        return in_array($key, $this->teacherAssignments($teacherId), true);
+    }
+
+    private function studentsOfTeacher(int $teacherId): array
+    {
+        $keys = $this->teacherAssignments($teacherId);
+        if (empty($keys)) return [];
+
+        $pairs = collect($keys)->map(function ($k) {
+            [$session_id,$class_id,$section_id] = explode('|', $k);
+            return [
+                'session_id' => (int)$session_id,
+                'class_id'   => (int)$class_id,
+                'section_id' => (int)$section_id,
+            ];
+        });
+
+        // promotions لو موجودة
+        if (Schema::hasTable('promotions')) {
+            $q = DB::table('promotions')->select('student_id')->distinct();
+            $q->where(function ($w) use ($pairs) {
+                foreach ($pairs as $p) {
+                    $w->orWhere(function ($x) use ($p) {
+                        $x->where('session_id', $p['session_id'])
+                            ->where('class_id', $p['class_id'])
+                            ->where('section_id', $p['section_id']);
+                    });
+                }
+            });
+            return $q->pluck('student_id')->filter()->values()->all();
+        }
+
+        // fallback attendances
+        $q = DB::table('attendances')->select('student_id')->distinct();
+        $q->where(function ($w) use ($pairs) {
+            foreach ($pairs as $p) {
+                $w->orWhere(function ($x) use ($p) {
+                    $x->where('session_id', $p['session_id'])
+                        ->where('class_id', $p['class_id'])
+                        ->where('section_id', $p['section_id']);
+                });
+            }
+        });
+        return $q->pluck('student_id')->filter()->values()->all();
+    }
+
+    private function teacherCanChatParent(int $teacherId, int $parentUserId): bool
+    {
+        $children = $this->parentChildStudentIds($parentUserId);
+        if (empty($children)) return false;
+
+        $teacherStudents = $this->studentsOfTeacher($teacherId);
+        if (empty($teacherStudents)) return false;
+
+        return count(array_intersect($children, $teacherStudents)) > 0;
+    }
+
+    private function parentCanChatTeacher(int $parentUserId, int $teacherId): bool
+    {
+        return $this->teacherCanChatParent($teacherId, $parentUserId);
+    }
+
+    private function sameClassForStudents(int $studentA, int $studentB): bool
+    {
+        $pa = $this->studentPlacement($studentA);
+        $pb = $this->studentPlacement($studentB);
+        if (!$pa || !$pb) return false;
+
+        return (int)$pa->session_id === (int)$pb->session_id
+            && (int)$pa->class_id   === (int)$pb->class_id
+            && (int)$pa->section_id === (int)$pb->section_id;
+    }
+
+    // ======================
+    // Conversation type
+    // ======================
     private function inferType($a, $b): string
     {
-        $ra = $a->primaryRoleName();
-        $rb = $b->primaryRoleName();
+        $ra = method_exists($a, 'primaryRoleName') ? $a->primaryRoleName() : ($a->role ?? '');
+        $rb = method_exists($b, 'primaryRoleName') ? $b->primaryRoleName() : ($b->role ?? '');
         $roles = [$ra, $rb];
         sort($roles);
         $pair = implode('_', $roles);

@@ -430,6 +430,7 @@
             </li>
 
             {{-- Payments --}}
+            @if($u && ($isAdmin || $isAccountant || $isStudent || $isParent))
             <li class="nav-item">
                 <a class="nav-link {{ request()->is('finance/invoices*') ? 'active' : '' }}"
                    href="{{ route('finance.invoices.index') }}">
@@ -437,6 +438,18 @@
                     <span class="ms-1 d-inline d-sm-none d-md-none d-xl-inline">Payments</span>
                 </a>
             </li>
+            @endif
+
+
+            @if($u && ($isTeacher))
+                <li class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('finance.teacher.salary') ? 'active' : '' }}"
+                       href="{{ route('finance.teacher.salary') }}">
+                        <i class="bi bi-wallet2"></i>
+                        <span class="ms-1 d-inline d-sm-none d-md-none d-xl-inline">My Salary</span>
+                    </a>
+                </li>
+            @endif
 
         </ul>
     </div>
