@@ -32,8 +32,9 @@ class Attendance extends Model
      */
     public function student()
     {
-        return $this->belongsTo(User::class, 'student_id');
+        return $this->belongsTo(\App\Models\User::class, 'student_id');
     }
+
 
     /**
      * Get the schoolClass for attendance.
@@ -48,6 +49,7 @@ class Attendance extends Model
     public function section() {
         return $this->belongsTo(Section::class, 'section_id');
     }
+
 
     /**
      * Get the course for attendance.

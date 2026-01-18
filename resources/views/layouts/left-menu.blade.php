@@ -174,17 +174,54 @@
             @endif
 
 
-            {{-- Teacher menu --}}
-            @if ($u && $isTeacher)
+{{--            --}}{{-- Teacher menu --}}
+{{--            @if ($u && $isTeacher)--}}
+{{--                <li class="nav-item">--}}
+{{--                    <a class="nav-link {{ (request()->is('courses/teacher*') || request()->is('courses/assignments*')) ? 'active' : '' }}"--}}
+{{--                       href="{{ $r('course.teacher.list.show', url('/courses/teacher/index')) }}">--}}
+{{--                        <i class="bi bi-journal-medical"></i>--}}
+{{--                        <span class="ms-1 d-inline d-sm-none d-md-none d-xl-inline">My Courses</span>--}}
+{{--                    </a>--}}
+{{--                </li>--}}
+{{--            @endif--}}
+
+            {{-- Attendance (Admin/Teacher) --}}
+            @if($u && ($isAdmin || $isTeacher))
+                @php
+                    $attendanceHomeUrl = $r('attendance.index', url('/attendances'));
+                    $attendanceViewUrl = $r('attendance.list.show', url('/attendances/view'));
+                    $attendanceTakeUrl = $r('attendance.create.show', url('/attendances/take'));
+
+                    $isAttendanceActive = request()->is('attendances*');
+                @endphp
+
                 <li class="nav-item">
-                    <a class="nav-link {{ (request()->is('courses/teacher*') || request()->is('courses/assignments*')) ? 'active' : '' }}"
-                       href="{{ $r('course.teacher.list.show', url('/courses/teacher/index')) }}">
-                        <i class="bi bi-journal-medical"></i>
-                        <span class="ms-1 d-inline d-sm-none d-md-none d-xl-inline">My Courses</span>
+                    <a type="button"
+                       href="#attendance-submenu"
+                       data-bs-toggle="collapse"
+                       class="d-flex nav-link {{ $isAttendanceActive ? 'active' : '' }}">
+                        <i class="bi bi-calendar2-week"></i>
+                        <span class="ms-2 d-inline d-sm-none d-md-none d-xl-inline">Attendance</span>
+                        <i class="ms-auto d-inline d-sm-none d-md-none d-xl-inline bi bi-chevron-down"></i>
                     </a>
+
+                    <ul class="nav collapse {{ $isAttendanceActive ? 'show' : 'hide' }} bg-white" id="attendance-submenu">
+                        <li class="nav-item w-100">
+                            <a class="nav-link" href="{{ $attendanceHomeUrl }}">
+                                <i class="bi bi-house-door me-2"></i> Attendance Home
+                            </a>
+                        </li>
+
+
+
+                        <li class="nav-item w-100">
+                            <a class="nav-link" href="{{ $attendanceTakeUrl }}">
+                                <i class="bi bi-check2-square me-2"></i> Take Attendance
+                            </a>
+                        </li>
+                    </ul>
                 </li>
             @endif
-
 
             {{-- Student menu --}}
             @if ($u && $isStudent)
